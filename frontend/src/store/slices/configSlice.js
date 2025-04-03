@@ -1,15 +1,15 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axiosInstance from '../../api/axios';
+import axios from '../../api/axios';
 
 // Async thunks
 export const fetchConfig = createAsyncThunk(
   'config/fetchConfig',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get('/config');
-      return response.data;
+      const response = await axios.get('/config/departments');
+      return { departments: response.data };
     } catch (error) {
-      return rejectWithValue(error.response?.data || { message: 'Failed to fetch config' });
+      return rejectWithValue(error.response?.data || { message: 'Failed to fetch configuration' });
     }
   }
 );
@@ -18,7 +18,7 @@ export const updateConfig = createAsyncThunk(
   'config/updateConfig',
   async (configData, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.put('/config', configData);
+      const response = await axios.put('/config', configData);
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || { message: 'Failed to update config' });
@@ -55,7 +55,7 @@ const configSlice = createSlice({
       })
       .addCase(fetchConfig.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || 'Failed to fetch config';
+        state.error = action.payload?.message || 'Failed to fetch configuration';
       })
       // Update config
       .addCase(updateConfig.pending, (state) => {

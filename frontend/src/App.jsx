@@ -40,19 +40,19 @@ const App = () => {
         <Route
           path="/login"
           element={
-            isAuthenticated ? <Navigate to="/" replace /> : <LoginForm />
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginForm />
           }
         />
         <Route
           path="/register"
           element={
-            isAuthenticated ? <Navigate to="/" replace /> : <RegisterForm />
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterForm />
           }
         />
 
         {/* Protected routes */}
         <Route
-          path="/"
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <Layout />
@@ -64,6 +64,15 @@ const App = () => {
           <Route path="attendance" element={<Attendance />} />
           <Route path="settings" element={<Settings />} />
         </Route>
+
+        {/* Root redirect */}
+        <Route
+          path="/"
+          element={<Navigate to="/dashboard" replace />}
+        />
+
+        {/* Catch all route */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Router>
   );

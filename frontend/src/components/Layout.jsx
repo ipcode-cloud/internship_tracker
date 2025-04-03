@@ -29,9 +29,9 @@ const Layout = () => {
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                 <Link
-                  to="/"
+                  to="/dashboard"
                   className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                    isActive('/')
+                    isActive('/dashboard')
                       ? 'border-indigo-500 text-gray-900'
                       : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                   }`}
@@ -39,9 +39,9 @@ const Layout = () => {
                   Dashboard
                 </Link>
                 <Link
-                  to="/interns"
+                  to="/dashboard/interns"
                   className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                    isActive('/interns')
+                    isActive('/dashboard/interns')
                       ? 'border-indigo-500 text-gray-900'
                       : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                   }`}
@@ -49,45 +49,41 @@ const Layout = () => {
                   Interns
                 </Link>
                 <Link
-                  to="/attendance"
+                  to="/dashboard/attendance"
                   className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                    isActive('/attendance')
+                    isActive('/dashboard/attendance')
                       ? 'border-indigo-500 text-gray-900'
                       : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                   }`}
                 >
                   Attendance
                 </Link>
-                {user?.role === 'admin' && (
-                  <Link
-                    to="/settings"
-                    className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                      isActive('/settings')
-                        ? 'border-indigo-500 text-gray-900'
-                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                    }`}
-                  >
-                    Settings
-                  </Link>
-                )}
+                <Link
+                  to="/dashboard/settings"
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                    isActive('/dashboard/settings')
+                      ? 'border-indigo-500 text-gray-900'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  }`}
+                >
+                  Settings
+                </Link>
               </div>
             </div>
             <div className="flex items-center">
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-700">{user?.name}</span>
-                <button
-                  onClick={handleLogout}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Logout
-                </button>
-              </div>
+              <span className="text-gray-700 mr-4">{user?.firstName} {user?.lastName}</span>
+              <button
+                onClick={handleLogout}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>
       </nav>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-6">
         <Outlet />
       </main>
     </div>

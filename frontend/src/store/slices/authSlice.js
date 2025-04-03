@@ -20,9 +20,16 @@ export const register = createAsyncThunk(
   async (userData, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.post('/auth/register', userData);
+      // Store token first
       localStorage.setItem('token', response.data.token);
-      return response.data;
+      // Then fetch user data to ensure we have the complete user object
+      const userResponse = await axiosInstance.get('/auth/me');
+      return {
+        ...response.data,
+        user: userResponse.data
+      };
     } catch (error) {
+      localStorage.removeItem('token');
       return rejectWithValue(error.response?.data || { message: 'Registration failed' });
     }
   }
@@ -59,7 +66,6 @@ export const fetchMentors = createAsyncThunk(
 
 const initialState = {
   user: null,
-  token: localStorage.getItem('token'),
   isAuthenticated: false,
   loading: false,
   error: null,
@@ -85,14 +91,12 @@ const authSlice = createSlice({
         state.loading = false;
         state.isAuthenticated = true;
         state.user = action.payload.user;
-        state.token = action.payload.token;
         state.error = null;
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
         state.isAuthenticated = false;
         state.user = null;
-        state.token = null;
         state.error = action.payload?.message || 'Login failed';
       })
       // Register
@@ -104,22 +108,18 @@ const authSlice = createSlice({
         state.loading = false;
         state.isAuthenticated = true;
         state.user = action.payload.user;
-        state.token = action.payload.token;
         state.error = null;
       })
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
         state.isAuthenticated = false;
         state.user = null;
-        state.token = null;
         state.error = action.payload?.message || 'Registration failed';
       })
       // Logout
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
-        state.token = null;
         state.isAuthenticated = false;
-        state.loading = false;
         state.error = null;
       })
       // Get Current User
@@ -137,7 +137,6 @@ const authSlice = createSlice({
         state.loading = false;
         state.isAuthenticated = false;
         state.user = null;
-        state.token = null;
         state.error = action.payload?.message || 'Failed to get user data';
       })
       // Fetch Mentors

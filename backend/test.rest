@@ -1,20 +1,20 @@
 ### Variables
 @baseUrl = http://localhost:5000/api
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3ZWNlYWFmZDdiOWE3NGZkYjBhNDU2OSIsImlhdCI6MTc0MzU3OTgyMywiZXhwIjoxNzQzNjY2MjIzfQ.gWCh4I50NP4GsZc8zVfkxMeMDq7y7yRqDm1CjmsQBMM
+@token = abc
 
 
 ### Authentication Tests
 
 ### Register Admin User
+## token:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3ZWU1YTM4N2UyOTQ0NWZiZWE5MDM2MCIsImlhdCI6MTc0MzY3MzkxMiwiZXhwIjoxNzQzNzYwMzEyfQ.HH-1yF7qWBmdeql2A1PNiYN2gY1ogfEbBFGJWOgmmBg
 
-# token:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3ZWNlYWFmZDdiOWE3NGZkYjBhNDU2OSIsImlhdCI6MTc0MzU3OTgyMywiZXhwIjoxNzQzNjY2MjIzfQ.gWCh4I50NP4GsZc8zVfkxMeMDq7y7yRqDm1CjmsQBMM
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
 {
-  "firstName": "Admin",
-  "lastName": "User",
-  "email": "admin@example.com",
+  "firstName": "Admin2",
+  "lastName": "User2",
+  "email": "admin2@example.com",
   "password": "admin123",
   "department": "IT",
   "role": "admin"
@@ -41,8 +41,8 @@ POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "admin@example.com",
-  "password": "admin123"
+  "email": "mentor@example.com",
+  "password": "mentor123"
 }
 
 ### Get Current User

@@ -1,180 +1,218 @@
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { z } from 'zod';
 import { useDispatch, useSelector } from 'react-redux';
-import { register, clearError } from '../../store/slices/authSlice';
+import { register } from '../../store/slices/authSlice';
 import { fetchConfig } from '../../store/slices/configSlice';
 import { toast } from 'react-toastify';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import 'react-toastify/dist/ReactToastify.css';
 
 const registerSchema = z.object({
-  firstName: z.string().min(2, 'First name must be at least 2 characters'),
-  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
   department: z.string().min(1, 'Department is required'),
-  role: z.enum(['admin', 'mentor', 'intern'], {
-    required_error: 'Role is required',
-  })
+  role: z.enum(['mentor', 'intern'])
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"]
 });
 
+const roles = [
+  { value: 'intern', label: 'Intern' },
+  { value: 'mentor', label: 'Mentor' }
+];
+
 const RegisterForm = () => {
   const dispatch = useDispatch();
-  const { loading, error } = useSelector((state) => state.auth);
-  const { config } = useSelector((state) => state.config);
+  const navigate = useNavigate();
+  const { departments, loading: configLoading } = useSelector((state) => state.config.config);
+  const { isAuthenticated, loading: authLoading, error } = useSelector((state) => state.auth);
+  
+  const { register: registerField, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      role: 'intern'
+    }
+  });
 
   useEffect(() => {
     dispatch(fetchConfig());
   }, [dispatch]);
 
-  const {
-    register: registerField,
-    handleSubmit,
-    formState: { errors },
-  } = useForm({
-    resolver: zodResolver(registerSchema),
-  });
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, authLoading, navigate]);
 
   const onSubmit = async (data) => {
     try {
-      const { confirmPassword, ...registerData } = data;
-      console.log('Form data before submission:', registerData);
-      const result = await dispatch(register(registerData)).unwrap();
-      console.log('Registration result:', result);
-      toast.success('Registered successfully');
+      const { confirmPassword, ...registrationData } = data;
+      await dispatch(register(registrationData)).unwrap();
+      toast.success('Registration successful!');
+      navigate('/dashboard', { replace: true });
     } catch (error) {
-      console.error('Registration error in form:', error);
-      toast.error(error.message || 'Failed to register. Please try again.');
+      toast.error(error.message || 'Registration failed');
     }
   };
 
+  if (configLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full max-w-md mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-6 text-center">Register</h2>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 via-white to-purple-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
         <div>
-          <input
-            type="text"
-            placeholder="First Name"
-            {...registerField('firstName')}
-            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.firstName ? 'border-red-500' : 'border-gray-300'
-            }`}
-          />
-          {errors.firstName && (
-            <p className="text-red-500 text-sm mt-1">{errors.firstName.message}</p>
-          )}
+          <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900">
+            Create your account
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Already have an account?{' '}
+            <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors">
+              Sign in here
+            </Link>
+          </p>
         </div>
-        <div>
-          <input
-            type="text"
-            placeholder="Last Name"
-            {...registerField('lastName')}
-            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.lastName ? 'border-red-500' : 'border-gray-300'
-            }`}
-          />
-          {errors.lastName && (
-            <p className="text-red-500 text-sm mt-1">{errors.lastName.message}</p>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">First Name</label>
+                <input
+                  {...registerField('firstName')}
+                  type="text"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="John"
+                />
+                {errors.firstName && (
+                  <p className="mt-1 text-sm text-red-600">{errors.firstName.message}</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">Last Name</label>
+                <input
+                  {...registerField('lastName')}
+                  type="text"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="Doe"
+                />
+                {errors.lastName && (
+                  <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email address</label>
+              <input
+                {...registerField('email')}
+                type="email"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                placeholder="john.doe@example.com"
+              />
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                <input
+                  {...registerField('password')}
+                  type="password"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="••••••••"
+                />
+                {errors.password && (
+                  <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                <input
+                  {...registerField('confirmPassword')}
+                  type="password"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="••••••••"
+                />
+                {errors.confirmPassword && (
+                  <p className="mt-1 text-sm text-red-600">{errors.confirmPassword.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="department" className="block text-sm font-medium text-gray-700">Department</label>
+                <select
+                  {...registerField('department')}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+                  <option value="">Select Department</option>
+                  {departments?.map((dept, index) => (
+                    <option key={index} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
+                {errors.department && (
+                  <p className="mt-1 text-sm text-red-600">{errors.department.message}</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="role" className="block text-sm font-medium text-gray-700">Role</label>
+                <select
+                  {...registerField('role')}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+                  {roles.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.role && (
+                  <p className="mt-1 text-sm text-red-600">{errors.role.message}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="text-red-600 text-sm text-center bg-red-50 p-2 rounded">{error}</div>
           )}
-        </div>
-        <div>
-          <input
-            type="email"
-            placeholder="Email"
-            {...registerField('email')}
-            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.email ? 'border-red-500' : 'border-gray-300'
-            }`}
-          />
-          {errors.email && (
-            <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
-          )}
-        </div>
-        <div>
-          <input
-            type="password"
-            placeholder="Password"
-            {...registerField('password')}
-            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.password ? 'border-red-500' : 'border-gray-300'
-            }`}
-          />
-          {errors.password && (
-            <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
-          )}
-        </div>
-        <div>
-          <input
-            type="password"
-            placeholder="Confirm Password"
-            {...registerField('confirmPassword')}
-            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
-            }`}
-          />
-          {errors.confirmPassword && (
-            <p className="text-red-500 text-sm mt-1">{errors.confirmPassword.message}</p>
-          )}
-        </div>
-        <div>
-          <select
-            {...registerField('department')}
-            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.department ? 'border-red-500' : 'border-gray-300'
-            }`}
-          >
-            <option value="">Select Department</option>
-            {config?.departments?.map((dept) => (
-              <option key={dept} value={dept}>
-                {dept}
-              </option>
-            ))}
-          </select>
-          {errors.department && (
-            <p className="text-red-500 text-sm mt-1">{errors.department.message}</p>
-          )}
-        </div>
-        <div>
-          <select
-            {...registerField('role')}
-            className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.role ? 'border-red-500' : 'border-gray-300'
-            }`}
-          >
-            <option value="">Select Role</option>
-            <option value="admin">Admin</option>
-            <option value="mentor">Mentor</option>
-            <option value="intern">Intern</option>
-          </select>
-          {errors.role && (
-            <p className="text-red-500 text-sm mt-1">{errors.role.message}</p>
-          )}
-        </div>
-        {error && (
-          <p className="text-red-500 text-sm text-center">{error}</p>
-        )}
-        <button
-          type="submit"
-          disabled={loading}
-          className={`w-full py-2 px-4 rounded-md text-white font-medium ${
-            loading
-              ? 'bg-blue-400 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700'
-          }`}
-        >
-          {loading ? 'Registering...' : 'Register'}
-        </button>
-      </form>
-      <div className="mt-4 text-center">
-        <Link to="/login" className="text-blue-500 hover:text-blue-700">
-          Already have an account? Login here
-        </Link>
+
+          <div>
+            <button
+              type="submit"
+              disabled={isSubmitting || authLoading}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isSubmitting || authLoading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Registering...
+                </span>
+              ) : (
+                'Register'
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

@@ -5,6 +5,20 @@ import { auth, checkRole } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
+// Public endpoint to get departments (no auth required)
+router.get('/departments', async (req, res) => {
+  try {
+    const config = await Config.findOne();
+    if (!config) {
+      return res.json([]);
+    }
+    res.json(config.departments || []);
+  } catch (error) {
+    console.error('Error fetching departments:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get configuration (admin only)
 router.get('/', auth, checkRole(['admin']), async (req, res) => {
   try {

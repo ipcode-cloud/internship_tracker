@@ -24,7 +24,7 @@ const configSchema = new mongoose.Schema({
   }],
   positions: [{
     type: String,
-    trim: true
+    trim: true 
   }],
   updatedAt: {
     type: Date,

@@ -14,7 +14,7 @@ router.post('/register',
     body('firstName').trim().notEmpty(),
     body('lastName').trim().notEmpty(),
     body('department').trim().notEmpty(),
-    body('role').isIn(['admin', 'mentor', 'intern'])
+    body('role').isIn(['mentor', 'intern'])
   ],
   async (req, res) => {
     try {
@@ -38,19 +38,20 @@ router.post('/register',
         firstName,
         lastName,
         department,
-        role
+        role: role || 'intern' // Default to intern if no role specified
       });
 
       await user.save();
 
       // Generate token
       const token = jwt.sign(
-        { id: user._id },
+        { id: user._id, role: user.role },
         process.env.JWT_SECRET || 'your-secret-key',
         { expiresIn: '24h' }
       );
 
       res.status(201).json({
+        message: 'Registration successful',
         token,
         user: {
           id: user._id,
@@ -62,7 +63,8 @@ router.post('/register',
         }
       });
     } catch (error) {
-      res.status(500).json({ message: 'Server error' });
+      console.error('Registration error:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
   }
 );
