@@ -1,0 +1,207 @@
+### Variables
+@baseUrl = http://localhost:5000/api
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3ZWNlYWFmZDdiOWE3NGZkYjBhNDU2OSIsImlhdCI6MTc0MzU3OTgyMywiZXhwIjoxNzQzNjY2MjIzfQ.gWCh4I50NP4GsZc8zVfkxMeMDq7y7yRqDm1CjmsQBMM
+
+
+### Authentication Tests
+
+### Register Admin User
+
+# token:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3ZWNlYWFmZDdiOWE3NGZkYjBhNDU2OSIsImlhdCI6MTc0MzU3OTgyMywiZXhwIjoxNzQzNjY2MjIzfQ.gWCh4I50NP4GsZc8zVfkxMeMDq7y7yRqDm1CjmsQBMM
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Admin",
+  "lastName": "User",
+  "email": "admin@example.com",
+  "password": "admin123",
+  "department": "IT",
+  "role": "admin"
+}
+
+### Register Mentor User
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Mentor",
+  "lastName": "User",
+  "email": "mentor@example.com",
+  "password": "mentor123",
+  "department": "IT",
+  "role": "mentor"
+}
+
+### Login User
+
+# token:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3ZWNlYzlmZDdiOWE3NGZkYjBhNDU2YyIsImlhdCI6MTc0MzU4MDMxOSwiZXhwIjoxNzQzNjY2NzE5fQ.ZVTx1uU5u4gDi_LbvoGsuKNveBoQlwJj0SnWlxGueTk
+# id:67ecec9fd7b9a74fdb0a456c
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "admin123"
+}
+
+### Get Current User
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{token}}
+
+### Intern Management Tests
+
+### Create New Intern
+POST {{baseUrl}}/interns
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "phone": "1234567890",
+  "department": "IT",
+  "startDate": "2024-03-01",
+  "endDate": "2024-06-30",
+  "mentor": "67ecec9fd7b9a74fdb0a456c"
+}
+
+### Get All Interns
+GET {{baseUrl}}/interns
+Authorization: Bearer {{token}}
+
+### Get Intern by ID
+GET {{baseUrl}}/interns/67ecf03b50c594ba18b8bc50
+Authorization: Bearer {{token}}
+
+### Update Intern
+PUT {{baseUrl}}/interns/67ecf03b50c594ba18b8bc50
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "completed",
+  "phone": "9876543210"
+}
+
+### Delete Intern
+DELETE {{baseUrl}}/interns/intern_id_here
+Authorization: Bearer {{token}}
+
+### Update Completed Status for Expired Internships
+PUT {{baseUrl}}/interns/batch/complete-expired
+Authorization: Bearer {{token}}
+
+### Attendance Management Tests
+
+### Mark Attendance
+POST {{baseUrl}}/attendance
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "intern": "intern_id_here",
+  "date": "2024-03-20",
+  "status": "present",
+  "checkIn": "2024-03-20T09:00:00Z",
+  "checkOut": "2024-03-20T17:00:00Z",
+  "notes": "On time"
+}
+
+### Get Attendance for Specific Intern
+GET {{baseUrl}}/attendance/intern/intern_id_here
+Authorization: Bearer {{token}}
+
+### Get Attendance by Date Range
+GET {{baseUrl}}/attendance/range
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "startDate": "2024-03-01",
+  "endDate": "2024-03-31"
+}
+
+### Update Attendance Record
+PUT {{baseUrl}}/attendance/attendance_id_here
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "late",
+  "checkIn": "2024-03-20T09:30:00Z",
+  "notes": "Late due to traffic"
+}
+
+### Delete Attendance Record
+DELETE {{baseUrl}}/attendance/attendance_id_here
+Authorization: Bearer {{token}}
+
+### Admin Routes
+
+### Delete Inactive/Terminated Interns
+DELETE {{baseUrl}}/admin/interns/cleanup
+Authorization: Bearer {{token}}
+
+### Get All Configurations
+GET {{baseUrl}}/admin/config
+Authorization: Bearer {{token}}
+
+### Add New Department
+POST {{baseUrl}}/admin/config
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "type": "department",
+  "values": ["Artificial Intelligence", "Cloud Computing", "Cybersecurity"]
+}
+
+### Add New Status Types
+POST {{baseUrl}}/admin/config
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "type": "status",
+  "values": ["probation", "suspended"]
+}
+
+### Remove Configuration Value
+DELETE {{baseUrl}}/admin/config/department/Cloud Computing
+Authorization: Bearer {{token}}
+
+### Admin Routes
+
+### Delete Inactive/Terminated Interns
+DELETE {{baseUrl}}/admin/interns/cleanup
+Authorization: Bearer {{token}}
+
+### Get All Configurations
+GET {{baseUrl}}/admin/config
+Authorization: Bearer {{token}}
+
+### Add New Department
+POST {{baseUrl}}/admin/config
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "type": "department",
+  "values": ["Artificial Intelligence", "Cloud Computing", "Cybersecurity"]
+}
+
+### Add New Status Types
+POST {{baseUrl}}/admin/config
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "type": "status",
+  "values": ["probation", "suspended"]
+}
+
+### Remove Configuration Value
+DELETE {{baseUrl}}/admin/config/department/Cloud Computing
+Authorization: Bearer {{token}}

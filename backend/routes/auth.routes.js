@@ -128,4 +128,16 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+// Get all mentors
+router.get('/mentors', auth, async (req, res) => {
+  try {
+    const mentors = await User.find({ role: 'mentor', isActive: true })
+      .select('firstName lastName email department')
+      .sort({ firstName: 1 });
+    res.json(mentors);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 export default router; 

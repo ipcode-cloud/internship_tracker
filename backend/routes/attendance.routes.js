@@ -6,6 +6,23 @@ import { auth, checkRole } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
+// Get all attendance records
+router.get('/',
+  auth,
+  checkRole(['admin', 'mentor']),
+  async (req, res) => {
+    try {
+      const attendance = await Attendance.find()
+        .populate('intern', 'firstName lastName department')
+        .populate('markedBy', 'firstName lastName')
+        .sort({ date: -1 });
+      res.json(attendance);
+    } catch (error) {
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+);
+
 // Get attendance records for an intern
 router.get('/intern/:internId',
   auth,
@@ -106,7 +123,7 @@ router.post('/',
   }
 );
 
-// Update attendance record
+// Update attendance
 router.put('/:id',
   auth,
   checkRole(['admin', 'mentor']),
@@ -128,13 +145,7 @@ router.put('/:id',
         return res.status(404).json({ message: 'Attendance record not found' });
       }
 
-      // Update fields
-      Object.keys(req.body).forEach(key => {
-        if (req.body[key] !== undefined) {
-          attendance[key] = req.body[key];
-        }
-      });
-
+      Object.assign(attendance, req.body);
       await attendance.save();
       res.json(attendance);
     } catch (error) {
@@ -143,19 +154,17 @@ router.put('/:id',
   }
 );
 
-// Delete attendance record
+// Delete attendance
 router.delete('/:id',
   auth,
   checkRole(['admin']),
   async (req, res) => {
     try {
-      const attendance = await Attendance.findById(req.params.id);
+      const attendance = await Attendance.findByIdAndDelete(req.params.id);
       if (!attendance) {
         return res.status(404).json({ message: 'Attendance record not found' });
       }
-
-      await attendance.remove();
-      res.json({ message: 'Attendance record deleted successfully' });
+      res.json({ message: 'Attendance record deleted' });
     } catch (error) {
       res.status(500).json({ message: 'Server error' });
     }

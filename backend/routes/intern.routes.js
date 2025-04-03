@@ -13,6 +13,7 @@ router.get('/', auth, checkRole(['admin', 'mentor']), async (req, res) => {
       .sort({ createdAt: -1 });
     res.json(interns);
   } catch (error) {
+    console.error('Error fetching interns:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -27,15 +28,16 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Intern not found' });
     }
 
-    // Only allow access if user is admin, mentor, or the intern themselves
+    // Only allow access if user is admin, mentor, or the intern's mentor
     if (req.user.role !== 'admin' && 
         req.user.role !== 'mentor' && 
-        req.user._id.toString() !== intern.mentor.toString()) {
+        req.user._id.toString() !== intern.mentor._id.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
     res.json(intern);
   } catch (error) {
+    console.error('Error fetching intern:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -50,6 +52,7 @@ router.post('/',
     body('email').isEmail().normalizeEmail(),
     body('phone').trim().notEmpty(),
     body('department').trim().notEmpty(),
+    body('position').trim().notEmpty(),
     body('startDate').isISO8601(),
     body('endDate').isISO8601(),
     body('mentor').isMongoId()
@@ -65,6 +68,7 @@ router.post('/',
       await intern.save();
       res.status(201).json(intern);
     } catch (error) {
+      console.error('Error creating intern:', error);
       res.status(500).json({ message: 'Server error' });
     }
   }
@@ -80,10 +84,11 @@ router.put('/:id',
     body('email').optional().isEmail().normalizeEmail(),
     body('phone').optional().trim().notEmpty(),
     body('department').optional().trim().notEmpty(),
+    body('position').optional().trim().notEmpty(),
     body('startDate').optional().isISO8601(),
     body('endDate').optional().isISO8601(),
     body('mentor').optional().isMongoId(),
-    body('status').optional().isIn(['active', 'inactive', 'completed'])
+    body('status').optional().isIn(['active', 'inactive', 'completed', 'terminated', 'extended', 'on_leave'])
   ],
   async (req, res) => {
     try {
@@ -97,16 +102,15 @@ router.put('/:id',
         return res.status(404).json({ message: 'Intern not found' });
       }
 
-      // Update fields
+      // Update intern fields
       Object.keys(req.body).forEach(key => {
-        if (req.body[key] !== undefined) {
-          intern[key] = req.body[key];
-        }
+        intern[key] = req.body[key];
       });
 
       await intern.save();
       res.json(intern);
     } catch (error) {
+      console.error('Error updating intern:', error);
       res.status(500).json({ message: 'Server error' });
     }
   }
@@ -120,11 +124,43 @@ router.delete('/:id', auth, checkRole(['admin']), async (req, res) => {
       return res.status(404).json({ message: 'Intern not found' });
     }
 
-    await intern.remove();
+    await intern.deleteOne();
     res.json({ message: 'Intern deleted successfully' });
   } catch (error) {
+    console.error('Error deleting intern:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Update completed status for all interns whose end date has passed
+router.put('/batch/complete-expired',
+  auth,
+  checkRole(['admin']),
+  async (req, res) => {
+    try {
+      // Find and update all interns whose end date is in the past and status is still 'active'
+      const result = await Intern.updateMany(
+        {
+          endDate: { $lt: new Date() },
+          status: 'active'
+        },
+        {
+          $set: { 
+            status: 'completed',
+            updatedAt: new Date()
+          }
+        }
+      );
+
+      res.json({
+        message: 'Internship statuses updated successfully',
+        updated: result.modifiedCount
+      });
+    } catch (error) {
+      console.error('Error updating expired internships:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+);
 
 export default router; 

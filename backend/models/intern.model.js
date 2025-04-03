@@ -24,7 +24,23 @@ const internSchema = new mongoose.Schema({
   },
   department: {
     type: String,
+    enum: [
+      'IT',
+      'Software Development',
+      'Data Science',
+      'UI/UX',
+      'Marketing',
+      'HR',
+      'Finance',
+      'Operations',
+      'Networking'
+    ],
     required: true
+  },
+  position: {
+    type: String,
+    required: true,
+    trim: true
   },
   startDate: {
     type: Date,
@@ -36,8 +52,25 @@ const internSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['active', 'inactive', 'completed'],
+    enum: [
+      'active',
+      'inactive',
+      'completed',
+      'terminated',
+      'extended',
+      'on_leave'
+    ],
     default: 'active'
+  },
+  performanceRating: {
+    type: String,
+    enum: ['excellent', 'good', 'average', 'needs_improvement', 'unsatisfactory'],
+    default: 'average'
+  },
+  projectStatus: {
+    type: String,
+    enum: ['not_started', 'in_progress', 'completed', 'delayed', 'on_hold'],
+    default: 'not_started'
   },
   mentor: {
     type: mongoose.Schema.Types.ObjectId,
