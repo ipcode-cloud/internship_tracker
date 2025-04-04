@@ -16,7 +16,8 @@ const registerSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
   department: z.string().min(1, 'Department is required'),
-  role: z.enum(['mentor', 'intern'])
+  role: z.enum(['mentor', 'intern']),
+  phone: z.string().optional()
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"]
@@ -122,6 +123,19 @@ const RegisterForm = () => {
               />
               {errors.email && (
                 <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone Number</label>
+              <input
+                {...registerField('phone')}
+                type="tel"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                placeholder="+250 123 456 789"
+              />
+              {errors.phone && (
+                <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
               )}
             </div>
 

@@ -8,7 +8,13 @@ const attendanceSchema = new mongoose.Schema({
   },
   date: {
     type: Date,
-    required: true
+    required: true,
+    validate: {
+      validator: function(v) {
+        return v instanceof Date;
+      },
+      message: 'Date must be a valid date'
+    }
   },
   status: {
     type: String,
@@ -28,7 +34,7 @@ const attendanceSchema = new mongoose.Schema({
     type: Date,
     validate: {
       validator: function(v) {
-        return !v || (this.status !== 'absent' && v instanceof Date && v > this.checkIn);
+        return !v || (this.status !== 'absent' && v instanceof Date && (!this.checkIn || v > this.checkIn));
       },
       message: 'Check-out time must be after check-in time'
     }

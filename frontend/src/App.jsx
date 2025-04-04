@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Interns from './pages/Interns';
 import Attendance from './pages/Attendance';
 import Settings from './pages/Settings';
+import Profile from './pages/Profile';
 import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -15,7 +16,7 @@ import { getCurrentUser } from './store/slices/authSlice';
 
 const App = () => {
   const dispatch = useDispatch();
-  const { isAuthenticated, loading } = useSelector((state) => state.auth);
+  const { isAuthenticated, loading, user } = useSelector((state) => state.auth);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -63,6 +64,7 @@ const App = () => {
           <Route path="interns" element={<Interns />} />
           <Route path="attendance" element={<Attendance />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="profile" element={<Profile />} />
         </Route>
 
         {/* Root redirect */}

@@ -19,6 +19,20 @@ router.get('/departments', async (req, res) => {
   }
 });
 
+// Public endpoint to get positions (no auth required)
+router.get('/positions', async (req, res) => {
+  try {
+    const config = await Config.findOne();
+    if (!config) {
+      return res.json([]);
+    }
+    res.json(config.positions || []);
+  } catch (error) {
+    console.error('Error fetching positions:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get configuration (admin only)
 router.get('/', auth, checkRole(['admin']), async (req, res) => {
   try {

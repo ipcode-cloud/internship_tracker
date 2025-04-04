@@ -5,16 +5,19 @@ import {
   createIntern,
   updateIntern,
   deleteIntern,
+  clearInternError
 } from '../store/slices/internSlice';
 import { fetchConfig } from '../store/slices/configSlice';
 import { toast } from 'react-toastify';
-import { fetchMentors } from '../store/slices/authSlice';
+import { fetchMentors, fetchUsers } from '../store/slices/authSlice';
 
 const InternForm = ({ intern, onSubmit, onCancel }) => {
   const dispatch = useDispatch();
   const { departments, positions } = useSelector((state) => state.config.config);
-  const { mentors } = useSelector((state) => state.auth);
+  const { mentors, users } = useSelector((state) => state.auth);
+  const { interns } = useSelector((state) => state.interns);
   const [formData, setFormData] = useState({
+    userId: intern?.userId || '',
     firstName: intern?.firstName || '',
     lastName: intern?.lastName || '',
     email: intern?.email || '',
@@ -27,10 +30,21 @@ const InternForm = ({ intern, onSubmit, onCancel }) => {
     mentor: intern?.mentor?._id || ''
   });
 
+  // Fetch users when component mounts
+  useEffect(() => {
+    dispatch(fetchUsers());
+  }, [dispatch]);
+
+  // Get available users (registered users with role 'intern' who aren't already interns)
+  const availableUsers = users?.filter(user => {
+    return user.role === 'intern' && !interns?.some(intern => intern.userId === user._id);
+  }) || [];
+
   // Update form data when intern changes
   useEffect(() => {
     if (intern) {
       setFormData({
+        userId: intern.userId || '',
         firstName: intern.firstName || '',
         lastName: intern.lastName || '',
         email: intern.email || '',
@@ -44,6 +58,7 @@ const InternForm = ({ intern, onSubmit, onCancel }) => {
       });
     } else {
       setFormData({
+        userId: '',
         firstName: '',
         lastName: '',
         email: '',
@@ -57,6 +72,26 @@ const InternForm = ({ intern, onSubmit, onCancel }) => {
       });
     }
   }, [intern]);
+
+  const handleUserSelect = (userId) => {
+    const selectedUser = users.find(user => user._id === userId);
+    console.log('Selected User:', selectedUser); // Debug log
+    
+    if (selectedUser) {
+      setFormData(prev => ({
+        ...prev,
+        userId: selectedUser._id,
+        firstName: selectedUser.firstName,
+        lastName: selectedUser.lastName,
+        email: selectedUser.email,
+        phone: selectedUser.phone || '', // Include phone from user data
+        department: selectedUser.department || '', // Use department from user data
+        position: '', // Set empty string for position since it's not in the user data
+        startDate: new Date().toISOString().split('T')[0],
+        status: 'active'
+      }));
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -72,12 +107,12 @@ const InternForm = ({ intern, onSubmit, onCancel }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900">
           {intern ? 'Edit Intern' : 'Add New Intern'}
         </h2>
-        <button onClick={onCancel} className="text-gray-400 hover:text-gray-500">
+        <button onClick={onCancel} className="text-gray-400 hover:text-gray-500 transition-colors">
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -85,6 +120,36 @@ const InternForm = ({ intern, onSubmit, onCancel }) => {
       </div>
       
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* User Selection Section - Only show when creating new intern */}
+        {!intern && (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Select Registered User</h3>
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">User</label>
+                <select
+                  name="userId"
+                  value={formData.userId}
+                  onChange={(e) => handleUserSelect(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                >
+                  <option value="">Select a registered user</option>
+                  {availableUsers.map((user) => (
+                    <option key={user._id} value={user._id}>
+                      {user.firstName} {user.lastName} ({user.email})
+                    </option>
+                  ))}
+                </select>
+                {availableUsers.length === 0 && (
+                  <p className="mt-2 text-sm text-gray-500">
+                    No available registered users found. Please register a new user first.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Personal Information Section */}
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
@@ -96,8 +161,9 @@ const InternForm = ({ intern, onSubmit, onCancel }) => {
                 name="firstName"
                 value={formData.firstName}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 required
+                disabled={!intern && formData.userId} // Disable if user is selected
               />
             </div>
             <div>
@@ -107,8 +173,9 @@ const InternForm = ({ intern, onSubmit, onCancel }) => {
                 name="lastName"
                 value={formData.lastName}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 required
+                disabled={!intern && formData.userId} // Disable if user is selected
               />
             </div>
             <div>
@@ -118,8 +185,9 @@ const InternForm = ({ intern, onSubmit, onCancel }) => {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 required
+                disabled={!intern && formData.userId} // Disable if user is selected
               />
             </div>
             <div>
@@ -129,22 +197,28 @@ const InternForm = ({ intern, onSubmit, onCancel }) => {
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                disabled={!intern && formData.userId} // Disable if user is selected
               />
             </div>
+          </div>
+        </div>
+        
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Internship Details</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Department</label>
               <select
                 name="department"
                 value={formData.department}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 required
               >
                 <option value="">Select Department</option>
-                {departments?.map((dept) => (
-                  <option key={dept} value={dept}>
+                {departments?.map((dept, index) => (
+                  <option key={index} value={dept}>
                     {dept}
                   </option>
                 ))}
@@ -156,15 +230,51 @@ const InternForm = ({ intern, onSubmit, onCancel }) => {
                 name="position"
                 value={formData.position}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 required
               >
                 <option value="">Select Position</option>
-                {positions?.map((pos) => (
-                  <option key={pos} value={pos}>
+                {positions?.map((pos, index) => (
+                  <option key={index} value={pos}>
                     {pos}
                   </option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Start Date</label>
+              <input
+                type="date"
+                name="startDate"
+                value={formData.startDate}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">End Date</label>
+              <input
+                type="date"
+                name="endDate"
+                value={formData.endDate}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Status</label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                required
+              >
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+                <option value="terminated">Terminated</option>
+                <option value="on_leave">On Leave</option>
               </select>
             </div>
             <div>
@@ -173,72 +283,32 @@ const InternForm = ({ intern, onSubmit, onCancel }) => {
                 name="mentor"
                 value={formData.mentor}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                required
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               >
                 <option value="">Select Mentor</option>
                 {mentors?.map((mentor) => (
                   <option key={mentor._id} value={mentor._id}>
-                    {mentor.firstName} {mentor.lastName} - {mentor.department}
+                    {mentor.firstName} {mentor.lastName}
                   </option>
                 ))}
               </select>
             </div>
           </div>
         </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Start Date</label>
-          <input
-            type="date"
-            name="startDate"
-            value={formData.startDate}
-            onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">End Date</label>
-          <input
-            type="date"
-            name="endDate"
-            value={formData.endDate}
-            onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Status</label>
-          <select
-            name="status"
-            value={formData.status}
-            onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            required
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="completed">Completed</option>
-            <option value="terminated">Terminated</option>
-            <option value="extended">Extended</option>
-            <option value="on_leave">On Leave</option>
-          </select>
-        </div>
-        <div className="mt-6 flex justify-end space-x-3">
+
+        <div className="flex justify-end space-x-3 pt-4">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
-            {intern ? 'Update' : 'Add'} Intern
+            {intern ? 'Update' : 'Create'}
           </button>
         </div>
       </form>
@@ -248,60 +318,56 @@ const InternForm = ({ intern, onSubmit, onCancel }) => {
 
 const Interns = () => {
   const dispatch = useDispatch();
-  const { interns, loading: internsLoading, error: internsError } = useSelector((state) => state.interns);
-  const { config, loading: configLoading, error: configError } = useSelector((state) => state.config);
-  const { mentors, loading: mentorsLoading, error: mentorsError } = useSelector((state) => state.auth);
+  const { interns, loading: internsLoading, error: internError } = useSelector((state) => state.interns);
+  const { config, loading: configLoading } = useSelector((state) => state.config);
+  const { mentors, loading: mentorsLoading } = useSelector((state) => state.auth);
   const [showForm, setShowForm] = useState(false);
   const [selectedIntern, setSelectedIntern] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterDepartment, setFilterDepartment] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [dataFetched, setDataFetched] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterDepartment, setFilterDepartment] = useState('all');
 
-  // Single useEffect for data fetching with a check to prevent duplicate fetches
+  // Fetch data only once when component mounts
   useEffect(() => {
     const fetchData = async () => {
-      // Only fetch if data hasn't been fetched yet
-      if (!dataFetched) {
-        try {
-          await Promise.all([
-            dispatch(fetchInterns()),
-            dispatch(fetchConfig()),
-            dispatch(fetchMentors())
-          ]);
-          setDataFetched(true);
-          setIsInitialLoad(false);
-        } catch (error) {
-          console.error('Error fetching data:', error);
+      try {
+        if (!interns.length && !internsLoading) {
+          await dispatch(fetchInterns());
         }
+        if (!config && !configLoading) {
+          await dispatch(fetchConfig());
+        }
+        if (!mentors?.length && !mentorsLoading) {
+          await dispatch(fetchMentors());
+        }
+      } catch (error) {
+        toast.error('Failed to fetch data');
       }
     };
-    
+
     fetchData();
-  }, [dispatch, dataFetched]);
+  }, [dispatch, interns.length, internsLoading, config, configLoading, mentors?.length, mentorsLoading]);
+
+  // Clear error when component unmounts
+  useEffect(() => {
+    return () => {
+      dispatch(clearInternError());
+    };
+  }, [dispatch]);
 
   const handleSubmit = async (formData) => {
     try {
-      // Ensure all required fields are present
-      if (!formData.firstName || !formData.lastName || !formData.email || 
-          !formData.phone || !formData.department || !formData.position || 
-          !formData.startDate || !formData.endDate || !formData.mentor) {
-        toast.error('Please fill in all required fields');
-        return;
-      }
-
       if (selectedIntern) {
         await dispatch(updateIntern({ id: selectedIntern._id, internData: formData })).unwrap();
         toast.success('Intern updated successfully');
       } else {
         await dispatch(createIntern(formData)).unwrap();
-        toast.success('Intern added successfully');
+        toast.success('Intern created successfully');
       }
       setShowForm(false);
       setSelectedIntern(null);
     } catch (error) {
-      toast.error(error.message || 'Failed to save intern');
+      toast.error(error.message || 'Operation failed');
     }
   };
 
@@ -325,180 +391,55 @@ const Interns = () => {
     switch (status) {
       case 'active':
         return 'bg-green-100 text-green-800';
-      case 'inactive':
-        return 'bg-gray-100 text-gray-800';
       case 'completed':
         return 'bg-blue-100 text-blue-800';
       case 'terminated':
         return 'bg-red-100 text-red-800';
-      case 'extended':
-        return 'bg-yellow-100 text-yellow-800';
       case 'on_leave':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
+  // Filter interns based on search term and filters
   const filteredInterns = interns.filter(intern => {
     const matchesSearch = 
       intern.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       intern.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       intern.email.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesDepartment = !filterDepartment || intern.department === filterDepartment;
-    const matchesStatus = !filterStatus || intern.status === filterStatus;
+    const matchesStatus = filterStatus === 'all' || intern.status === filterStatus;
+    const matchesDepartment = filterDepartment === 'all' || intern.department === filterDepartment;
     
-    return matchesSearch && matchesDepartment && matchesStatus;
+    return matchesSearch && matchesStatus && matchesDepartment;
   });
 
-  // Show loading state only during initial load
-  if (isInitialLoad && (internsLoading || configLoading || mentorsLoading)) {
+  if (internsLoading || configLoading || mentorsLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  // Show error state if any of the data fetching failed
-  if (internsError || configError || mentorsError) {
-    return (
-      <div className="text-center text-red-500 p-4">
-        Error: {internsError?.message || configError?.message || mentorsError?.message || 'Failed to load data'}
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Interns</h1>
         <button
           onClick={() => {
             setSelectedIntern(null);
             setShowForm(true);
           }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
           Add New Intern
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <input
-          type="text"
-          placeholder="Search interns..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="px-4 py-2 border rounded-md"
-        />
-        <select
-          value={filterDepartment}
-          onChange={(e) => setFilterDepartment(e.target.value)}
-          className="px-4 py-2 border rounded-md"
-        >
-          <option value="">All Departments</option>
-          {config?.departments?.map((dept) => (
-            <option key={dept} value={dept}>
-              {dept}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-4 py-2 border rounded-md"
-        >
-          <option value="">All Statuses</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-          <option value="completed">Completed</option>
-          <option value="terminated">Terminated</option>
-          <option value="extended">Extended</option>
-          <option value="on_leave">On Leave</option>
-        </select>
-      </div>
-
-      {/* Interns Table */}
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Name
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Department
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Position
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Mentor
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredInterns.map((intern) => (
-              <tr key={intern._id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">
-                    {intern.firstName} {intern.lastName}
-                  </div>
-                  <div className="text-sm text-gray-500">{intern.email}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{intern.department}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{intern.position}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    {intern.mentor?.firstName} {intern.mentor?.lastName}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(intern.status)}`}>
-                    {intern.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button
-                    onClick={() => handleEdit(intern)}
-                    className="text-blue-600 hover:text-blue-900 mr-4"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(intern._id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {filteredInterns.length === 0 && (
-          <div className="text-center py-4 text-gray-500">
-            No interns found
-          </div>
-        )}
-      </div>
-
-      {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4">
           <InternForm
             intern={selectedIntern}
             onSubmit={handleSubmit}
@@ -509,6 +450,142 @@ const Interns = () => {
           />
         </div>
       )}
+
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg shadow">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Search</label>
+            <input
+              type="text"
+              placeholder="Search by name or email"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Status</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            >
+              <option value="all">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="terminated">Terminated</option>
+              <option value="on_leave">On Leave</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Department</label>
+            <select
+              value={filterDepartment}
+              onChange={(e) => setFilterDepartment(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            >
+              <option value="all">All Departments</option>
+              {config?.departments?.map((dept, index) => (
+                <option key={index} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {internError && (
+        <div className="bg-red-50 p-4 rounded-md">
+          <p className="text-red-700">{internError}</p>
+        </div>
+      )}
+
+      {/* Interns Table */}
+      <div className="bg-white shadow overflow-hidden rounded-lg">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Name
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Email
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Department
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Position
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Mentor
+                </th>
+                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredInterns.length > 0 ? (
+                filteredInterns.map((intern) => (
+                  <tr key={intern._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {intern.firstName} {intern.lastName}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{intern.email}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{intern.department}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{intern.position}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(intern.status)}`}>
+                        {intern.status.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">
+                        {intern.mentor ? `${intern.mentor.firstName} ${intern.mentor.lastName}` : 'Not assigned'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => handleEdit(intern)}
+                        className="text-indigo-600 hover:text-indigo-900 mr-3"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(intern._id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
+                    No interns found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };

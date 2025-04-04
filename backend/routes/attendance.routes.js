@@ -103,7 +103,10 @@ router.post('/',
       // Check if attendance already exists for this date
       const existingAttendance = await Attendance.findOne({
         intern: req.body.intern,
-        date: new Date(req.body.date).setHours(0, 0, 0, 0)
+        date: {
+          $gte: new Date(req.body.date).setHours(0, 0, 0, 0),
+          $lt: new Date(req.body.date).setHours(23, 59, 59, 999)
+        }
       });
 
       if (existingAttendance) {
@@ -112,6 +115,7 @@ router.post('/',
 
       const attendance = new Attendance({
         ...req.body,
+        date: new Date(req.body.date),
         markedBy: req.user._id
       });
 

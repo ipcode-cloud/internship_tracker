@@ -38,16 +38,18 @@ const Layout = () => {
                 >
                   Dashboard
                 </Link>
-                <Link
-                  to="/dashboard/interns"
-                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                    isActive('/dashboard/interns')
-                      ? 'border-indigo-500 text-gray-900'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }`}
-                >
-                  Interns
-                </Link>
+                {user?.role === 'admin' && (
+                  <Link
+                    to="/dashboard/interns"
+                    className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                      isActive('/dashboard/interns')
+                        ? 'border-indigo-500 text-gray-900'
+                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    }`}
+                  >
+                    Interns
+                  </Link>
+                )}
                 <Link
                   to="/dashboard/attendance"
                   className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
@@ -58,6 +60,18 @@ const Layout = () => {
                 >
                   Attendance
                 </Link>
+                {user?.role === 'intern' && (
+                  <Link
+                    to="/dashboard/profile"
+                    className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                      isActive('/dashboard/profile')
+                        ? 'border-indigo-500 text-gray-900'
+                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    }`}
+                  >
+                    My Profile
+                  </Link>
+                )}
                 <Link
                   to="/dashboard/settings"
                   className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
@@ -70,8 +84,13 @@ const Layout = () => {
                 </Link>
               </div>
             </div>
-            <div className="flex items-center">
-              <span className="text-gray-700 mr-4">{user?.firstName} {user?.lastName}</span>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center">
+                <span className="text-gray-700 mr-2">{user?.firstName} {user?.lastName}</span>
+                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                  {user?.role}
+                </span>
+              </div>
               <button
                 onClick={handleLogout}
                 className="text-gray-500 hover:text-gray-700"

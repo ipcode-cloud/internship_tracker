@@ -57,7 +57,11 @@ const internSlice = createSlice({
     loading: false,
     error: null,
   },
-  reducers: {},
+  reducers: {
+    clearInternError: (state) => {
+      state.error = null;
+    }
+  },
   extraReducers: (builder) => {
     builder
       // Fetch interns
@@ -71,7 +75,7 @@ const internSlice = createSlice({
       })
       .addCase(fetchInterns.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.payload?.message || 'Failed to fetch interns';
       })
       // Create intern
       .addCase(createIntern.pending, (state) => {
@@ -84,7 +88,7 @@ const internSlice = createSlice({
       })
       .addCase(createIntern.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.payload?.message || 'Failed to create intern';
       })
       // Update intern
       .addCase(updateIntern.pending, (state) => {
@@ -100,7 +104,7 @@ const internSlice = createSlice({
       })
       .addCase(updateIntern.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.payload?.message || 'Failed to update intern';
       })
       // Delete intern
       .addCase(deleteIntern.pending, (state) => {
@@ -113,9 +117,10 @@ const internSlice = createSlice({
       })
       .addCase(deleteIntern.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.payload?.message || 'Failed to delete intern';
       });
   },
 });
 
+export const { clearInternError } = internSlice.actions;
 export default internSlice.reducer; 

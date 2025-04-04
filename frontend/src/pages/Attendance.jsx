@@ -18,6 +18,15 @@ const AttendanceForm = ({ onSubmit, onCancel }) => {
     notes: '',
   });
 
+  // Filter active interns and sort them by name
+  const activeInterns = interns
+    .filter((intern) => intern.status === 'active')
+    .sort((a, b) => {
+      const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+      const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -40,14 +49,17 @@ const AttendanceForm = ({ onSubmit, onCancel }) => {
           required
         >
           <option value="">Select Intern</option>
-          {interns
-            .filter((intern) => intern.status === 'active')
-            .map((intern) => (
-              <option key={intern._id} value={intern._id}>
-                {intern.name}
-              </option>
-            ))}
+          {activeInterns.map((intern) => (
+            <option key={intern._id} value={intern._id}>
+              {`${intern.firstName} ${intern.lastName}`}
+            </option>
+          ))}
         </select>
+        {activeInterns.length === 0 && (
+          <p className="mt-2 text-sm text-red-600">
+            No active interns found. Please add interns first.
+          </p>
+        )}
       </div>
 
       <div>
@@ -150,8 +162,25 @@ const Attendance = () => {
   }, [dispatch]);
 
   const handleSubmit = async (formData) => {
-    await dispatch(createAttendance(formData));
-    setShowForm(false);
+    try {
+      // Transform the form data to match backend expectations
+      const transformedData = {
+        intern: formData.internId,
+        date: new Date(formData.date).toISOString(),
+        status: formData.status,
+        checkIn: formData.status !== 'absent' && formData.checkIn ? 
+          new Date(`${formData.date}T${formData.checkIn}`).toISOString() : null,
+        checkOut: formData.status !== 'absent' && formData.checkOut ? 
+          new Date(`${formData.date}T${formData.checkOut}`).toISOString() : null,
+        notes: formData.notes
+      };
+
+      await dispatch(createAttendance(transformedData));
+      setShowForm(false);
+      dispatch(fetchAttendance()); // Refresh the attendance list
+    } catch (error) {
+      console.error('Error marking attendance:', error);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -161,13 +190,18 @@ const Attendance = () => {
   };
 
   const getInternName = (internId) => {
+    // If intern is already populated in the attendance record
+    if (typeof internId === 'object' && internId.firstName && internId.lastName) {
+      return `${internId.firstName} ${internId.lastName}`;
+    }
+    // Fallback to finding in interns array
     const intern = interns.find((i) => i._id === internId);
-    return intern ? intern.name : 'Unknown';
+    return intern ? `${intern.firstName} ${intern.lastName}` : 'Unknown';
   };
 
   const filteredAttendance = attendance.filter((record) => {
     const matchesDate = !filterDate || record.date === filterDate;
-    const matchesIntern = !filterIntern || record.internId === filterIntern;
+    const matchesIntern = !filterIntern || record.intern === filterIntern;
     const matchesStatus = !filterStatus || record.status === filterStatus;
     return matchesDate && matchesIntern && matchesStatus;
   });
@@ -213,7 +247,7 @@ const Attendance = () => {
           <option value="">All Interns</option>
           {interns.map((intern) => (
             <option key={intern._id} value={intern._id}>
-              {intern.name}
+              {`${intern.firstName} ${intern.lastName}`}
             </option>
           ))}
         </select>
@@ -246,7 +280,7 @@ const Attendance = () => {
             {filteredAttendance.map((record) => (
               <tr key={record._id}>
                 <td className="px-6 py-4 whitespace-nowrap">{new Date(record.date).toLocaleDateString()}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{getInternName(record.internId)}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{getInternName(record.intern)}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                     record.status === 'present' ? 'bg-green-100 text-green-800' :

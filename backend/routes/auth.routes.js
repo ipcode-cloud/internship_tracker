@@ -2,7 +2,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import User from '../models/user.model.js';
-import { auth } from '../middleware/auth.middleware.js';
+import { auth, checkRole } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
@@ -14,7 +14,8 @@ router.post('/register',
     body('firstName').trim().notEmpty(),
     body('lastName').trim().notEmpty(),
     body('department').trim().notEmpty(),
-    body('role').isIn(['mentor', 'intern'])
+    body('role').isIn(['mentor', 'intern']),
+    body('phone').trim()
   ],
   async (req, res) => {
     try {
@@ -23,7 +24,7 @@ router.post('/register',
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { email, password, firstName, lastName, department, role } = req.body;
+      const { email, password, firstName, lastName, department, role, phone } = req.body;
 
       // Check if user already exists
       let user = await User.findOne({ email });
@@ -38,7 +39,8 @@ router.post('/register',
         firstName,
         lastName,
         department,
-        role: role || 'intern' // Default to intern if no role specified
+        role: role || 'intern', // Default to intern if no role specified
+        phone
       });
 
       await user.save();
@@ -59,7 +61,8 @@ router.post('/register',
           firstName: user.firstName,
           lastName: user.lastName,
           role: user.role,
-          department: user.department
+          department: user.department,
+          phone: user.phone
         }
       });
     } catch (error) {
@@ -137,6 +140,18 @@ router.get('/mentors', auth, async (req, res) => {
       .select('firstName lastName email department')
       .sort({ firstName: 1 });
     res.json(mentors);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get all users
+router.get('/users', auth, checkRole(['admin']), async (req, res) => {
+  try {
+    const users = await User.find()
+      .select('firstName lastName email role department isActive phone')
+      .sort({ firstName: 1 });
+    res.json(users);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

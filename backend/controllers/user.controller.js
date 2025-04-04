@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 // Register new user
 export const register = async (req, res) => {
   try {
-    const { email, password, firstName, lastName, role, department } = req.body;
+    const { email, password, firstName, lastName, role, department, phone } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -19,7 +19,8 @@ export const register = async (req, res) => {
       firstName,
       lastName,
       role,
-      department
+      department,
+      phone
     });
 
     await user.save();
@@ -39,7 +40,8 @@ export const register = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
-        department: user.department
+        department: user.department,
+        phone: user.phone
       }
     });
   } catch (error) {
@@ -79,7 +81,8 @@ export const login = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
-        department: user.department
+        department: user.department,
+        phone: user.phone
       }
     });
   } catch (error) {
