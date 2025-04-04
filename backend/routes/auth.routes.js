@@ -15,7 +15,7 @@ router.post('/register',
     body('lastName').trim().notEmpty(),
     body('department').trim().notEmpty(),
     body('role').isIn(['mentor', 'intern']),
-    body('phone').trim()
+    body('phone').trim().notEmpty().isMobilePhone()
   ],
   async (req, res) => {
     try {
