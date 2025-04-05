@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchConfig, updateConfig } from '../store/slices/configSlice';
 import { toast } from 'react-toastify';
+import { Navigate } from 'react-router-dom';
 
 const Settings = () => {
   const dispatch = useDispatch();
-  const { config, loading } = useSelector((state) => state.config);
+  const { config, loading, error } = useSelector((state) => state.config);
   const { user } = useSelector((state) => state.auth);
   const [formData, setFormData] = useState({
     companyName: '',
@@ -19,11 +20,21 @@ const Settings = () => {
   const [newDepartment, setNewDepartment] = useState('');
   const [newPosition, setNewPosition] = useState('');
 
+  // If not admin, redirect to dashboard
+  if (!user || user.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   useEffect(() => {
-    if (user?.role === 'admin') {
-      dispatch(fetchConfig());
-    }
-  }, [dispatch, user?.role]);
+    const loadConfig = async () => {
+      try {
+        await dispatch(fetchConfig()).unwrap();
+      } catch (err) {
+        toast.error(err.message || 'Failed to fetch settings');
+      }
+    };
+    loadConfig();
+  }, [dispatch]);
 
   useEffect(() => {
     if (config) {
@@ -106,19 +117,6 @@ const Settings = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  if (user?.role !== 'admin') {
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="bg-white shadow-sm rounded-lg p-6 text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
-          <p className="text-gray-600">
-            You don't have permission to access the settings page. Only administrators can view and modify settings.
-          </p>
-        </div>
       </div>
     );
   }

@@ -3,8 +3,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useDispatch, useSelector } from 'react-redux';
-import { register } from '../../store/slices/authSlice';
-import { fetchConfig } from '../../store/slices/configSlice';
+import { register as registerUser } from '../../store/slices/authSlice';
+import { fetchPublicConfig } from '../../store/slices/configSlice';
 import { toast } from 'react-toastify';
 import { Link, useNavigate } from 'react-router-dom';
 import 'react-toastify/dist/ReactToastify.css';
@@ -31,7 +31,7 @@ const roles = [
 const RegisterForm = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { departments, loading: configLoading } = useSelector((state) => state.config.config);
+  const { departments } = useSelector((state) => state.config.config);
   const { isAuthenticated, loading: authLoading, error } = useSelector((state) => state.auth);
   
   const { register: registerField, handleSubmit, formState: { errors, isSubmitting } } = useForm({
@@ -42,7 +42,7 @@ const RegisterForm = () => {
   });
 
   useEffect(() => {
-    dispatch(fetchConfig());
+    dispatch(fetchPublicConfig());
   }, [dispatch]);
 
   useEffect(() => {
@@ -54,7 +54,7 @@ const RegisterForm = () => {
   const onSubmit = async (data) => {
     try {
       const { confirmPassword, ...registrationData } = data;
-      await dispatch(register(registrationData)).unwrap();
+      await dispatch(registerUser(registrationData)).unwrap();
       toast.success('Registration successful!');
       navigate('/dashboard', { replace: true });
     } catch (error) {
@@ -62,7 +62,7 @@ const RegisterForm = () => {
     }
   };
 
-  if (configLoading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>

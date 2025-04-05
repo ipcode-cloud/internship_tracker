@@ -6,7 +6,7 @@ import { auth, checkRole } from '../middleware/auth.middleware.js';
 const router = express.Router();
 
 // Get all interns (admin and mentor only)
-router.get('/', auth, checkRole(['admin', 'mentor']), async (req, res) => {
+router.get('/', auth, checkRole(['admin', 'mentor', 'intern']), async (req, res) => {
   try {
     const interns = await Intern.find()
       .populate('mentor', 'firstName lastName email')
@@ -28,14 +28,28 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Intern not found' });
     }
 
-    // Only allow access if user is admin, mentor, or the intern's mentor
-    if (req.user.role !== 'admin' && 
-        req.user.role !== 'mentor' && 
-        req.user._id.toString() !== intern.mentor._id.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
+    // Check permissions based on user role
+    if (req.user.role === 'admin') {
+      // Admin can access any intern's profile
+      return res.json(intern);
+    }
+    
+    if (req.user.role === 'mentor') {
+      // Mentor can access their mentees' profiles
+      if (intern.mentor._id.toString() === req.user._id.toString()) {
+        return res.json(intern);
+      }
+    }
+    
+    if (req.user.role === 'intern') {
+      // Intern can only access their own profile
+      if (intern._id.toString() === req.user._id.toString()) {
+        return res.json(intern);
+      }
     }
 
-    res.json(intern);
+    // If none of the above conditions are met, deny access
+    return res.status(403).json({ message: 'Access denied' });
   } catch (error) {
     console.error('Error fetching intern:', error);
     res.status(500).json({ message: 'Server error' });
@@ -74,10 +88,10 @@ router.post('/',
   }
 );
 
-// Update intern (admin only)
+// Update intern (admin and mentor)
 router.put('/:id',
   auth,
-  checkRole(['admin']),
+  checkRole(['admin', 'mentor']),
   [
     body('firstName').optional().trim().notEmpty(),
     body('lastName').optional().trim().notEmpty(),
@@ -88,7 +102,10 @@ router.put('/:id',
     body('startDate').optional().isISO8601(),
     body('endDate').optional().isISO8601(),
     body('mentor').optional().isMongoId(),
-    body('status').optional().isIn(['active', 'inactive', 'completed', 'terminated', 'extended', 'on_leave'])
+    body('status').optional().isIn(['active', 'inactive', 'completed', 'terminated', 'extended', 'on_leave']),
+    body('performanceRating').optional().isIn(['excellent', 'good', 'average', 'needs_improvement', 'unsatisfactory']),
+    body('projectStatus').optional().isIn(['not_started', 'in_progress', 'completed', 'delayed', 'on_hold']),
+    body('comments').optional().trim()
   ],
   async (req, res) => {
     try {
@@ -102,12 +119,20 @@ router.put('/:id',
         return res.status(404).json({ message: 'Intern not found' });
       }
 
+      // Check if user has permission to update this intern
+      if (req.user.role === 'mentor' && intern.mentor.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'You do not have permission to update this intern' });
+      }
+
       // Update intern fields
       Object.keys(req.body).forEach(key => {
         intern[key] = req.body[key];
       });
 
       await intern.save();
+      
+      // Populate mentor details before sending response
+      await intern.populate('mentor', 'firstName lastName email');
       res.json(intern);
     } catch (error) {
       console.error('Error updating intern:', error);

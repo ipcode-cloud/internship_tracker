@@ -38,11 +38,11 @@ const Layout = () => {
                 >
                   Dashboard
                 </Link>
-                {user?.role === 'admin' && (
+                {(user?.role === 'admin' || user?.role === 'mentor') && (
                   <Link
-                    to="/dashboard/interns"
+                    to="/interns"
                     className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                      isActive('/dashboard/interns')
+                      isActive('/interns')
                         ? 'border-indigo-500 text-gray-900'
                         : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                     }`}
@@ -51,9 +51,9 @@ const Layout = () => {
                   </Link>
                 )}
                 <Link
-                  to="/dashboard/attendance"
+                  to="/attendance"
                   className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                    isActive('/dashboard/attendance')
+                    isActive('/attendance')
                       ? 'border-indigo-500 text-gray-900'
                       : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                   }`}
@@ -62,9 +62,9 @@ const Layout = () => {
                 </Link>
                 {user?.role === 'intern' && (
                   <Link
-                    to="/dashboard/profile"
+                    to="/profile"
                     className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                      isActive('/dashboard/profile')
+                      isActive('/profile')
                         ? 'border-indigo-500 text-gray-900'
                         : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                     }`}
@@ -72,16 +72,18 @@ const Layout = () => {
                     My Profile
                   </Link>
                 )}
-                <Link
-                  to="/dashboard/settings"
-                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                    isActive('/dashboard/settings')
-                      ? 'border-indigo-500 text-gray-900'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }`}
-                >
-                  Settings
-                </Link>
+                {user?.role === 'admin' && (
+                  <Link
+                    to="/settings"
+                    className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                      isActive('/settings')
+                        ? 'border-indigo-500 text-gray-900'
+                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    }`}
+                  >
+                    Settings
+                  </Link>
+                )}
               </div>
             </div>
             <div className="flex items-center space-x-4">

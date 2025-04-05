@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useParams } from 'react-router-dom';
 import { fetchInterns } from '../store/slices/internSlice';
 import { fetchMentors } from '../store/slices/authSlice';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const Profile = () => {
   const dispatch = useDispatch();
+  const { id } = useParams();
   const { user } = useSelector((state) => state.auth);
   const { interns, loading, error } = useSelector((state) => state.interns);
   const { mentors } = useSelector((state) => state.auth);
@@ -31,25 +34,41 @@ const Profile = () => {
 
   useEffect(() => {
     if (interns && user) {
-      console.log('Searching for intern with email:', user.email);
-      console.log('Available interns:', interns);
+      let targetIntern;
       
-      const currentIntern = interns.find(intern => intern.email === user.email);
-      console.log('Found intern:', currentIntern);
-      
-      if (!currentIntern) {
-        setErrorMessage('Could not find your intern profile. Please contact your administrator.');
-        return;
+      if (id) {
+        // Mentor viewing a specific intern's profile
+        targetIntern = interns.find(intern => intern._id === id);
+        if (!targetIntern) {
+          setErrorMessage('Could not find the specified intern profile.');
+          return;
+        }
+        
+        // Check if the mentor has permission to view this intern
+        if (user.role === 'mentor') {
+          const mentorId = targetIntern.mentor?._id || targetIntern.mentor;
+          if (mentorId !== user._id) {
+            setErrorMessage('You do not have permission to view this intern profile.');
+            return;
+          }
+        }
+      } else {
+        // Intern viewing their own profile
+        targetIntern = interns.find(intern => intern.email === user.email);
+        if (!targetIntern && user.role === 'intern') {
+          setErrorMessage('Could not find your intern profile. Please contact your administrator.');
+          return;
+        }
       }
 
-      setInternData(currentIntern);
+      setInternData(targetIntern);
       
-      if (currentIntern && mentors) {
-        const currentMentor = mentors.find(mentor => mentor._id === currentIntern.mentor);
+      if (targetIntern && mentors) {
+        const currentMentor = mentors.find(mentor => mentor._id === targetIntern.mentor);
         setMentorData(currentMentor);
       }
     }
-  }, [interns, user, mentors]);
+  }, [interns, user, mentors, id]);
 
   const getPerformanceColor = (rating) => {
     switch (rating) {
@@ -86,7 +105,7 @@ const Profile = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        <LoadingSpinner size="lg" text="Loading profile..." />
       </div>
     );
   }

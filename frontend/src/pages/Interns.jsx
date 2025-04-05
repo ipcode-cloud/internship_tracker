@@ -7,9 +7,10 @@ import {
   deleteIntern,
   clearInternError
 } from '../store/slices/internSlice';
-import { fetchConfig } from '../store/slices/configSlice';
+import { fetchConfig, fetchPublicConfig } from '../store/slices/configSlice';
 import { toast } from 'react-toastify';
 import { fetchMentors, fetchUsers } from '../store/slices/authSlice';
+import { Link } from 'react-router-dom';
 
 const InternForm = ({ intern, onSubmit, onCancel }) => {
   const dispatch = useDispatch();
@@ -318,7 +319,8 @@ const InternForm = ({ intern, onSubmit, onCancel }) => {
 
 const Interns = () => {
   const dispatch = useDispatch();
-  const { interns, loading: internsLoading, error: internError } = useSelector((state) => state.interns);
+  const { user } = useSelector((state) => state.auth);
+  const { interns, loading, error } = useSelector((state) => state.interns);
   const { config, loading: configLoading } = useSelector((state) => state.config);
   const { mentors, loading: mentorsLoading } = useSelector((state) => state.auth);
   const [showForm, setShowForm] = useState(false);
@@ -327,26 +329,29 @@ const Interns = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDepartment, setFilterDepartment] = useState('all');
 
-  // Fetch data only once when component mounts
   useEffect(() => {
     const fetchData = async () => {
       try {
-        if (!interns.length && !internsLoading) {
-          await dispatch(fetchInterns());
-        }
-        if (!config && !configLoading) {
+        // Always fetch public config first
+        await dispatch(fetchPublicConfig());
+        
+        // Fetch interns and mentors
+        await Promise.all([
+          dispatch(fetchInterns()),
+          dispatch(fetchMentors())
+        ]);
+        
+        // If admin, also fetch full config
+        if (user?.role === 'admin') {
           await dispatch(fetchConfig());
         }
-        if (!mentors?.length && !mentorsLoading) {
-          await dispatch(fetchMentors());
-        }
       } catch (error) {
-        toast.error('Failed to fetch data');
+        toast.error(error.message || 'Failed to fetch data');
       }
     };
 
     fetchData();
-  }, [dispatch, interns.length, internsLoading, config, configLoading, mentors?.length, mentorsLoading]);
+  }, [dispatch, user?.role]);
 
   // Clear error when component unmounts
   useEffect(() => {
@@ -415,7 +420,7 @@ const Interns = () => {
     return matchesSearch && matchesStatus && matchesDepartment;
   });
 
-  if (internsLoading || configLoading || mentorsLoading) {
+  if (loading || configLoading || mentorsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
@@ -496,9 +501,9 @@ const Interns = () => {
         </div>
       </div>
 
-      {internError && (
+      {error && (
         <div className="bg-red-50 p-4 rounded-md">
-          <p className="text-red-700">{internError}</p>
+          <p className="text-red-700">{error}</p>
         </div>
       )}
 
@@ -560,6 +565,12 @@ const Interns = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <Link
+                        to={`/interns/${intern._id}`}
+                        className="text-indigo-600 hover:text-indigo-900 mr-3"
+                      >
+                        View Profile
+                      </Link>
                       <button
                         onClick={() => handleEdit(intern)}
                         className="text-indigo-600 hover:text-indigo-900 mr-3"
