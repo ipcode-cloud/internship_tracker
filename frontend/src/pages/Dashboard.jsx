@@ -212,41 +212,43 @@ const Dashboard = () => {
     );
   }
 
-  // Get today's date from the most recent attendance record
+  // Helper function to format date consistently
+  function formatDateToYYYYMMDD(date) {
+    // Create a new date object that preserves the local date
+    const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    // Format the date directly from components to avoid timezone issues
+    return `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}`;
+  }
+
+  // Get today's date - use local date to ensure consistency
   const getTodayDate = () => {
-    if (attendance.length > 0) {
-      const mostRecentDate = new Date(attendance[0].date);
-      mostRecentDate.setHours(0, 0, 0, 0);
-      return mostRecentDate;
-    }
-    return new Date();
+    const now = new Date();
+    // Create a new date that resets the time but preserves the date in local timezone
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return today;
   };
 
   const today = getTodayDate();
-  const todayISO = today.toISOString().split('T')[0];
-
+  const todayISO = formatDateToYYYYMMDD(today);
+  
   const userTodayAttendance = userAttendance.find(record => {
+    // Create date objects that preserve the date components regardless of timezone
     const recordDate = new Date(record.date);
-    recordDate.setHours(0, 0, 0, 0);
-    return recordDate.getTime() === today.getTime();
+    const recordDateLocal = new Date(recordDate.getFullYear(), recordDate.getMonth(), recordDate.getDate());
+    return formatDateToYYYYMMDD(recordDateLocal) === todayISO;
   });
-
+  
   // Get last 7 days attendance
   const getLastWeekDates = () => {
     const dates = [];
     
-    // Get today's date from the most recent attendance record
-    const today = getTodayDate();
+    // Get today's date in local timezone
+    const now = getTodayDate();
     
-    // Calculate the start of the week (Sunday)
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-    
-    // Generate dates for the week
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(startOfWeek);
-      date.setDate(startOfWeek.getDate() + i);
+    // Start from today and get the last 7 days
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(now.getDate() - i);
       dates.push(date);
     }
     
@@ -255,13 +257,15 @@ const Dashboard = () => {
 
   const getInternWeeklyAttendance = () => {
     return getLastWeekDates().map(date => {
+      const dateISO = formatDateToYYYYMMDD(date);
       const dayAttendance = userAttendance.find(record => {
+        // Create date objects using component values to avoid timezone issues
         const recordDate = new Date(record.date);
-        recordDate.setHours(0, 0, 0, 0);
-        return recordDate.getTime() === date.getTime();
+        const recordDateLocal = new Date(recordDate.getFullYear(), recordDate.getMonth(), recordDate.getDate());
+        return formatDateToYYYYMMDD(recordDateLocal) === dateISO;
       });
       return {
-        date: date.toISOString().split('T')[0],
+        date: dateISO,
         status: dayAttendance ? dayAttendance.status : 'absent',
         checkIn: dayAttendance?.checkIn,
         checkOut: dayAttendance?.checkOut
@@ -271,13 +275,15 @@ const Dashboard = () => {
 
   const getAdminWeeklyAttendance = () => {
     return getLastWeekDates().map(date => {
+      const dateISO = formatDateToYYYYMMDD(date);
       const dayAttendance = attendance.filter(record => {
+        // Create date objects using component values to avoid timezone issues
         const recordDate = new Date(record.date);
-        recordDate.setHours(0, 0, 0, 0);
-        return recordDate.getTime() === date.getTime();
+        const recordDateLocal = new Date(recordDate.getFullYear(), recordDate.getMonth(), recordDate.getDate());
+        return formatDateToYYYYMMDD(recordDateLocal) === dateISO;
       });
       return {
-        date: date.toISOString().split('T')[0],
+        date: dateISO,
         present: dayAttendance.filter(record => record.status === 'present').length,
         absent: dayAttendance.filter(record => record.status === 'absent').length,
         late: dayAttendance.filter(record => record.status === 'late').length,
@@ -288,9 +294,10 @@ const Dashboard = () => {
 
   // Attendance Statistics
   const todayAttendance = attendance.filter(record => {
+    // Create date objects using component values to avoid timezone issues
     const recordDate = new Date(record.date);
-    recordDate.setHours(0, 0, 0, 0);
-    return recordDate.getTime() === today.getTime();
+    const recordDateLocal = new Date(recordDate.getFullYear(), recordDate.getMonth(), recordDate.getDate());
+    return formatDateToYYYYMMDD(recordDateLocal) === todayISO;
   });
   const presentToday = todayAttendance.filter(record => record.status === 'present').length;
   const absentToday = todayAttendance.filter(record => record.status === 'absent').length;
@@ -611,36 +618,90 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Weekly Attendance Chart */}
-      <div className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Weekly Attendance</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Present</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Absent</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Late</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Half Day</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {getAdminWeeklyAttendance().map((day) => (
-                <tr key={day.date} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(day.date).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{day.present}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{day.absent}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-yellow-600">{day.late}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">{day.halfDay}</td>
+      {/* Weekly Attendance Chart for Admin/Mentor */}
+      {user?.role !== 'intern' && (
+        <div className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Weekly Attendance</h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Present</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Absent</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Late</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Half Day</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {getAdminWeeklyAttendance().map((day) => (
+                  <tr key={day.date} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {day.date === todayISO ? (
+                        <span className="font-bold">{new Date(day.date).toLocaleDateString()}</span>
+                      ) : (
+                        new Date(day.date).toLocaleDateString()
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{day.present}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{day.absent}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-yellow-600">{day.late}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">{day.halfDay}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Weekly Attendance for Interns */}
+      {user?.role === 'intern' && (
+        <div className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">My Weekly Attendance</h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check In</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check Out</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {getInternWeeklyAttendance().map((day) => (
+                  <tr key={day.date} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {day.date === todayISO ? (
+                        <span className="font-bold">{new Date(day.date).toLocaleDateString()}</span>
+                      ) : (
+                        new Date(day.date).toLocaleDateString()
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        day.status === 'present' ? 'bg-green-100 text-green-800' :
+                        day.status === 'absent' ? 'bg-red-100 text-red-800' :
+                        day.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {day.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {day.checkIn ? new Date(day.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {day.checkOut ? new Date(day.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Recent Attendance */}
       <div className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">

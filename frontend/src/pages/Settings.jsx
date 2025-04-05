@@ -29,7 +29,10 @@ const Settings = () => {
     if (config) {
       setFormData({
         companyName: config.companyName || '',
-        workingHours: config.workingHours || { start: '', end: '' },
+        workingHours: {
+          start: config.workingHours?.start || '09:00',
+          end: config.workingHours?.end || '17:00'
+        },
         departments: config.departments || [],
         positions: config.positions || []
       });

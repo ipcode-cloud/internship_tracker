@@ -6,13 +6,23 @@ export const fetchConfig = createAsyncThunk(
   'config/fetchConfig',
   async (_, { rejectWithValue }) => {
     try {
-      // Fetch departments and positions separately using public endpoints
+      // Fetch full config for admin users
+      const response = await axiosInstance.get('/config');
+      
+      // If we have the full config, return it
+      if (response.data.companyName) {
+        return response.data;
+      }
+      
+      // Fallback to fetching only the public parts
       const [departmentsResponse, positionsResponse] = await Promise.all([
         axiosInstance.get('/config/departments'),
         axiosInstance.get('/config/positions')
       ]);
 
       return {
+        companyName: '',
+        workingHours: { start: '', end: '' },
         departments: departmentsResponse.data,
         positions: positionsResponse.data
       };
