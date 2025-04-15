@@ -3,51 +3,107 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { fetchInterns } from '../store/slices/internSlice';
 import { fetchAttendance } from '../store/slices/attendanceSlice';
-import { fetchConfig, fetchPublicConfig } from '../store/slices/configSlice';
+import { fetchConfig } from '../store/slices/configSlice';
 import { fetchMentors } from '../store/slices/authSlice';
 import InternDashboard from '../components/dashboard/InternDashboard';
 import MentorDashboard from '../components/dashboard/MentorDashboard';
 import AdminDashboard from '../components/dashboard/AdminDashboard';
-
-// Skeleton Loading Components
-const CardSkeleton = () => (
-  <div className="bg-white rounded-lg shadow p-6 animate-pulse">
-    <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-    <div className="space-y-3">
-      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-    </div>
-  </div>
-);
-
-const TableSkeleton = () => (
-  <div className="bg-white rounded-lg shadow p-6 animate-pulse">
-    <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-    <div className="space-y-3">
-      <div className="h-4 bg-gray-200 rounded w-full"></div>
-      <div className="h-4 bg-gray-200 rounded w-full"></div>
-      <div className="h-4 bg-gray-200 rounded w-full"></div>
-    </div>
-  </div>
-);
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import { toast } from 'react-toastify';
+import { fetchUsers } from '../store/slices/authSlice';
 
 const Dashboard = () => {
   const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
+  const { user, users, loading: usersLoading, isAuthenticated } = useSelector((state) => state.auth);
   const { interns, loading: internsLoading } = useSelector((state) => state.interns);
   const { attendance, loading: attendanceLoading } = useSelector((state) => state.attendance);
   const { config, loading: configLoading } = useSelector((state) => state.config);
   const { mentors, mentorsLoading } = useSelector((state) => state.auth);
   
-  const [userAttendance, setUserAttendance] = useState([]);
+  const [recentAttendance, setRecentAttendance] = useState([]);
   const [weeklyStats, setWeeklyStats] = useState({ present: 0, absent: 0, late: 0 });
   const [todayStats, setTodayStats] = useState({ checkIn: null, checkOut: null, status: null });
+  const [loadingStartTime, setLoadingStartTime] = useState(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showLoading, setShowLoading] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false);
   
   const isMounted = useRef(true);
+
+  // Loading states
+  const isLoading = internsLoading || attendanceLoading || configLoading || mentorsLoading;
+
+  // Fetch data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setShowLoading(true);
+        setLoadingStartTime(Date.now());
+        setDataLoaded(false);
+        
+        // Fetch config for all users
+        await dispatch(fetchConfig());
+        
+        switch (user?.role) {
+          case 'intern':
+            await Promise.all([
+              dispatch(fetchAttendance()),
+            dispatch(fetchMentors())
+          ]);
+          break;
+          case 'mentor':
+            await Promise.all([
+              dispatch(fetchInterns()),
+              dispatch(fetchAttendance()),
+              dispatch(fetchMentors())
+            ]);
+            break;
+          case 'admin':
+            await Promise.all([
+              dispatch(fetchInterns()),
+              dispatch(fetchAttendance()),
+              dispatch(fetchMentors())
+            ]);
+            break;
+          default:
+            break;
+        }
+        
+        setDataLoaded(true);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        setError(error.message || 'Failed to fetch dashboard data');
+        toast.error('Failed to load dashboard data');
+      }
+    };
+
+    // Fetch data when user is authenticated or when user role changes
+    if (isAuthenticated && user?.role) {
+      console.log('Fetching data for role:', user.role);
+      fetchData();
+    }
+  }, [dispatch, user?.role, isAuthenticated]);
+
+  // Handle loading state
+  useEffect(() => {
+    if (!isLoading && loadingStartTime) {
+      const elapsedTime = Date.now() - loadingStartTime;
+      const minimumLoadingTime = 1000; // 1 second minimum loading time
+
+      if (elapsedTime < minimumLoadingTime) {
+        const remainingTime = minimumLoadingTime - elapsedTime;
+        const timer = setTimeout(() => {
+          setShowLoading(false);
+        }, remainingTime);
+        return () => clearTimeout(timer);
+      } else {
+        setShowLoading(false);
+      }
+    }
+  }, [isLoading, loadingStartTime]);
 
   useEffect(() => {
     return () => {
@@ -55,197 +111,53 @@ const Dashboard = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (!user) return;
-    
-    const loadDashboardData = async () => {
-      setError(null);
-        setIsInitialLoad(true);
-      try {
-        if (user.role === 'intern') {
-          await Promise.all([
-            dispatch(fetchAttendance()),
-            dispatch(fetchMentors()),
-            dispatch(fetchPublicConfig())
-          ]);
-        } else if (user.role === 'mentor') {
-          await Promise.all([
-            dispatch(fetchInterns()),
-            dispatch(fetchAttendance()),
-            dispatch(fetchPublicConfig())
-          ]);
-        } else if (user.role === 'admin') {
-          await Promise.all([
-            dispatch(fetchInterns()),
-            dispatch(fetchAttendance()),
-            dispatch(fetchConfig()),
-            dispatch(fetchMentors())
-          ]);
-        }
-      } catch (err) {
-        console.error('Dashboard data loading error:', err);
-        setError(err.message || 'Failed to fetch dashboard data');
-      } finally {
-        setIsInitialLoad(false);
-      }
-    };
-
-    loadDashboardData();
-  }, [dispatch, user]);
-
-  useEffect(() => {
-    if (user?.role === 'intern' && attendance?.length > 0) {
-      try {
-        // Filter attendance for current intern
-        const internAttendance = attendance.filter(record => record.internId === user.id);
-        
-        // Sort by date descending and get recent records
-        const sortedAttendance = [...internAttendance].sort((a, b) => 
-          new Date(b.date) - new Date(a.date)
-        );
-        
-        // Get today's attendance
-        const today = new Date();
-        const todayRecord = internAttendance.find(record => 
-          new Date(record.date).toDateString() === today.toDateString()
-        );
-        
-        if (todayRecord) {
-          setTodayStats({
-            checkIn: todayRecord.checkIn,
-            checkOut: todayRecord.checkOut,
-            status: todayRecord.status
-          });
-        }
-
-        // Calculate weekly stats
-        const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const weeklyAttendance = internAttendance.filter(record => 
-          new Date(record.date) >= oneWeekAgo
-        );
-
-        const stats = weeklyAttendance.reduce((acc, record) => {
-          if (record.status === 'present') acc.present++;
-          else if (record.status === 'absent') acc.absent++;
-          else if (record.status === 'late') acc.late++;
-          return acc;
-        }, { present: 0, absent: 0, late: 0 });
-
-        setWeeklyStats(stats);
-        setUserAttendance(sortedAttendance.slice(0, 5));
-      } catch (err) {
-        console.error('Error processing attendance data:', err);
-      }
-    }
-  }, [attendance, user]);
-
-  const getMentorId = (mentorId) => {
-    if (!mentorId) return null;
-    if (typeof mentorId === 'object') {
-      return mentorId._id || mentorId.id;
-    }
-    return mentorId;
-  };
-
-  const isMentorMatch = (internMentor, userId) => {
-    const mentorId = getMentorId(internMentor);
-    return mentorId === userId || mentorId === getMentorId(userId);
-  };
-
+  // Helper function to get mentor's mentees
   const getMentorMentees = () => {
-    if (!user || !interns) return [];
-    return interns.filter(intern => isMentorMatch(intern.mentor, user));
-  };
+    const userId = user?._id || user?.id;
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      if (user?.role === 'intern') {
-        await Promise.all([
-          dispatch(fetchAttendance()),
-          dispatch(fetchMentors()),
-          dispatch(fetchPublicConfig())
-        ]);
-      } else if (user?.role === 'mentor') {
-        await Promise.all([
-          dispatch(fetchInterns()),
-          dispatch(fetchAttendance()),
-          dispatch(fetchPublicConfig())
-        ]);
-      } else if (user?.role === 'admin') {
-        await Promise.all([
-          dispatch(fetchInterns()),
-          dispatch(fetchAttendance()),
-          dispatch(fetchConfig()),
-          dispatch(fetchMentors())
-        ]);
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to refresh dashboard data');
-    } finally {
-      setIsRefreshing(false);
+    if (!user || !interns || !userId) {
+      return [];
     }
+
+    const filteredMentees = interns.filter(intern => {
+      const mentorId = getMentorId(intern.mentor);
+      return mentorId && mentorId.toString() === userId.toString();
+    });
+
+    return filteredMentees;
   };
 
-  // Loading states
-  const isLoading = internsLoading || attendanceLoading || configLoading || mentorsLoading;
+  // Helper function to get mentor ID from mentor object
+  const getMentorId = (mentor) => {
+    if (!mentor) {
+      return null;
+    }
+    
+    if (typeof mentor === 'object') {
+      return mentor._id || mentor.id;
+    }
+    
+    return mentor;
+  };
 
-  if (isInitialLoad && isLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
-          <div className="h-10 bg-gray-200 rounded w-32 animate-pulse"></div>
-        </div>
-          <CardSkeleton />
-          <TableSkeleton />
-        </div>
-        </div>
-    );
-  }
+  // Get user's mentees if user is a mentor
+  const userMentees = user?.role === 'mentor' 
+    ? interns?.filter(intern => {
+        const mentorId = getMentorId(intern.mentor);
+        const userId = user?._id || user?.id;
+        return mentorId && userId && mentorId.toString() === userId.toString();
+      }) || []
+    : [];
 
-  if (isRefreshing) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-      </div>
-    );
-  }
+  // Get user's attendance if user is an intern
+  const internAttendance = user?.role === 'intern'
+    ? attendance.filter(record => {
+        const userId = user?._id || user?.id;
+        return record.intern._id === userId;
+      })
+    : [];
 
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="text-red-500 text-xl mb-4">{error}</div>
-        <button 
-            onClick={handleRefresh}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-        >
-          Retry
-        </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!interns || !attendance) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="text-red-500 text-xl mb-4">Failed to load dashboard data</div>
-        <button 
-            onClick={handleRefresh}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-        >
-          Retry
-        </button>
-      </div>
-      </div>
-    );
-  }
-
-  // Calculate attendance statistics
+  // Calculate attendance statistics for admin dashboard
   const today = new Date();
   const todayString = today.toDateString();
   const todayAttendance = attendance.filter(record => 
@@ -257,100 +169,123 @@ const Dashboard = () => {
   const lateToday = todayAttendance.filter(record => record.status === 'late').length;
   const halfDayToday = todayAttendance.filter(record => record.status === 'half-day').length;
 
-  // Calculate weekly attendance
-  const oneWeekAgo = new Date(today);
-  oneWeekAgo.setDate(today.getDate() - 7);
-  
-  const adminWeeklyAttendance = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
+  // Calculate weekly attendance for admin dashboard
+  const adminWeeklyAttendance = Array(7).fill(0).map((_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() - index);
     const dateString = date.toDateString();
-    
     const dayAttendance = attendance.filter(record => 
       new Date(record.date).toDateString() === dateString
     );
-
     return {
-      date: date.toISOString().split('T')[0],
-      present: dayAttendance.filter(record => record.status === 'present').length,
-      absent: dayAttendance.filter(record => record.status === 'absent').length,
-      late: dayAttendance.filter(record => record.status === 'late').length,
-      halfDay: dayAttendance.filter(record => record.status === 'half-day').length
+      date: dateString,
+      present: dayAttendance.filter(record => record.status === 'present').length || 0,
+      absent: dayAttendance.filter(record => record.status === 'absent').length || 0,
+      late: dayAttendance.filter(record => record.status === 'late').length || 0
     };
   }).reverse();
 
-  // Calculate performance statistics
+  // Calculate performance statistics for admin dashboard
   const performanceStats = {
-    excellent: interns.filter(intern => intern.performanceRating === 'excellent').length,
-    good: interns.filter(intern => intern.performanceRating === 'good').length,
-    average: interns.filter(intern => intern.performanceRating === 'average').length,
-    needs_improvement: interns.filter(intern => intern.performanceRating === 'needs_improvement').length,
-    unsatisfactory: interns.filter(intern => intern.performanceRating === 'unsatisfactory').length
+    excellent: interns.filter(intern => intern.performanceRating === 'excellent').length || 0,
+    good: interns.filter(intern => intern.performanceRating === 'good').length || 0,
+    average: interns.filter(intern => intern.performanceRating === 'average').length || 0,
+    needsImprovement: interns.filter(intern => intern.performanceRating === 'Needs_improvement').length || 0
   };
 
-  // Calculate project statistics
+  // Calculate project statistics for admin dashboard
   const projectStats = {
-    not_started: interns.filter(intern => intern.projectStatus === 'not_started').length,
-    in_progress: interns.filter(intern => intern.projectStatus === 'in_progress').length,
-    completed: interns.filter(intern => intern.projectStatus === 'completed').length,
-    delayed: interns.filter(intern => intern.projectStatus === 'delayed').length,
-    on_hold: interns.filter(intern => intern.projectStatus === 'on_hold').length
+    completed: interns.filter(intern => intern.projectStatus === 'completed').length || 0,
+    inProgress: interns.filter(intern => intern.projectStatus === 'in_progress').length || 0,
+    notStarted: interns.filter(intern => intern.projectStatus === 'not_started').length || 0
   };
 
+  // Debug logging
+  console.log('Dashboard State:', {
+    user,
+    interns,
+    attendance,
+    userMentees,
+    dataLoaded,
+    isLoading,
+    showLoading,
+    isAuthenticated
+  });
+
+  if (showLoading || isLoading) {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        {/* Common Header Section */}
-        <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <div className="flex gap-4">
-        {user?.role === 'intern' && (
-          <Link 
-                to="/profile" 
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <LoadingSpinner size="lg" text="Loading dashboard..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              setShowLoading(true);
+              setLoadingStartTime(Date.now());
+            }}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
           >
-                View Profile
-          </Link>
-        )}
-            <button
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50"
-            >
-              {isRefreshing ? 'Refreshing...' : 'Refresh'}
-            </button>
-          </div>
+            Retry
+          </button>
         </div>
+      </div>
+    );
+  }
 
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-            {error}
+  // Company details section
+  const CompanyDetails = () => (
+    <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">{config?.companyName || 'Company Name'}</h2>
+          <p className="text-gray-600 mt-1">
+            Working Hours: {config?.workingHours?.start || '09:00'} - {config?.workingHours?.end || '17:00'}
+          </p>
         </div>
-      )}
+        <div className="text-right">
+          <p className="text-gray-600">Departments: {config?.departments?.length || 0}</p>
+          <p className="text-gray-600">Total Positions: {Object.values(config?.positions || {}).flat().length || 0}</p>
+        </div>
+      </div>
+      
+      {/* Departments and Positions */}
+      <div className="mt-4">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Departments & Positions</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {config?.departments?.map((department) => (
+            <div key={department} className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-medium text-gray-900 mb-2">{department}</h4>
+              <ul className="space-y-1">
+                {(config?.positions?.[department] || []).map((position) => (
+                  <li key={position} className="text-sm text-gray-600">
+                    • {position}
+                  </li>
+                ))}
+                {(!config?.positions?.[department] || config.positions[department].length === 0) && (
+                  <li className="text-sm text-gray-400 italic">No positions defined</li>
+                )}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
-        {/* Role-based Dashboard Content */}
-        {user?.role === 'intern' && (
-          <InternDashboard
-            user={user}
-            todayStats={todayStats}
-            weeklyStats={weeklyStats}
-            userAttendance={userAttendance}
-          />
-        )}
-
-        {user?.role === 'mentor' && (
-          <MentorDashboard
-            user={user}
-            interns={interns}
-            attendance={attendance}
-            statusFilter={statusFilter}
-            setStatusFilter={setStatusFilter}
-            getMentorMentees={getMentorMentees}
-            getMentorId={getMentorId}
-          />
-        )}
-
-      {user?.role === 'admin' && (
+  // Render the appropriate dashboard based on user role
+  switch (user?.role) {
+    case 'admin':
+      return (
+        <div className="space-y-6">
+          <CompanyDetails />
           <AdminDashboard
             interns={interns}
             presentToday={presentToday}
@@ -361,10 +296,41 @@ const Dashboard = () => {
             performanceStats={performanceStats}
             projectStats={projectStats}
           />
-        )}
-      </div>
+        </div>
+      );
+    case 'mentor':
+      return (
+        <div className="space-y-6">
+          <CompanyDetails />
+          <MentorDashboard
+            user={user}
+            interns={interns}
+            attendance={attendance}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+            getMentorMentees={getMentorMentees}
+            getMentorId={getMentorId}
+            />
+        </div>
+      );
+      case 'intern':
+        return (
+          <div className="space-y-6">
+          <CompanyDetails />
+          <InternDashboard
+            user={user}
+            attendance={attendance}
+            interns={interns}
+          />
+        </div>
+      );
+    default:
+      return (
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <p className="text-gray-500">Please log in to view your dashboard</p>
     </div>
   );
+  }
 };
 
 export default Dashboard; 

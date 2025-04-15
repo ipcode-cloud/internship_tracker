@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useDispatch, useSelector } from 'react-redux';
 import { register as registerUser } from '../../store/slices/authSlice';
-import { fetchPublicConfig } from '../../store/slices/configSlice';
+import { fetchConfig } from '../../store/slices/configSlice';
 import { toast } from 'react-toastify';
 import { Link, useNavigate } from 'react-router-dom';
 import 'react-toastify/dist/ReactToastify.css';
@@ -17,7 +17,7 @@ const registerSchema = z.object({
   confirmPassword: z.string(),
   department: z.string().min(1, 'Department is required'),
   role: z.enum(['mentor', 'intern']),
-  phone: z.string().optional()
+  phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Invalid phone number format')
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"]
@@ -31,7 +31,7 @@ const roles = [
 const RegisterForm = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { departments } = useSelector((state) => state.config.config);
+  const { config } = useSelector((state) => state.config);
   const { isAuthenticated, loading: authLoading, error } = useSelector((state) => state.auth);
   
   const { register: registerField, handleSubmit, formState: { errors, isSubmitting } } = useForm({
@@ -42,7 +42,7 @@ const RegisterForm = () => {
   });
 
   useEffect(() => {
-    dispatch(fetchPublicConfig());
+    dispatch(fetchConfig());
   }, [dispatch]);
 
   useEffect(() => {
@@ -174,7 +174,7 @@ const RegisterForm = () => {
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 >
                   <option value="">Select Department</option>
-                  {departments?.map((dept, index) => (
+                  {config?.departments?.map((dept, index) => (
                     <option key={index} value={dept}>
                       {dept}
                     </option>

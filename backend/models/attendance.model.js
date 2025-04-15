@@ -18,7 +18,7 @@ const attendanceSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['present', 'absent', 'late', 'half-day'],
+    enum: ['present', 'absent', 'late'],
     required: true
   },
   checkIn: {
@@ -57,19 +57,26 @@ attendanceSchema.index({ intern: 1, date: 1 }, { unique: true });
 
 // Pre-save middleware to validate check-in and check-out times
 attendanceSchema.pre('save', function(next) {
-  if (this.status !== 'absent') {
-    if (!this.checkIn) {
-      next(new Error('Check-in time is required for non-absent status'));
-      return;
-    }
-    if (!this.checkOut) {
-      next(new Error('Check-out time is required for non-absent status'));
-      return;
-    }
-    if (this.checkOut <= this.checkIn) {
-      next(new Error('Check-out time must be after check-in time'));
-      return;
-    }
+  if (this.status === 'absent') {
+    // Clear check-in and check-out times for absent status
+    this.checkIn = undefined;
+    this.checkOut = undefined;
+    next();
+    return;
+  }
+
+  // For non-absent status, validate check-in and check-out times
+  if (!this.checkIn) {
+    next(new Error('Check-in time is required for non-absent status'));
+    return;
+  }
+  if (!this.checkOut) {
+    next(new Error('Check-out time is required for non-absent status'));
+    return;
+  }
+  if (this.checkOut <= this.checkIn) {
+    next(new Error('Check-out time must be after check-in time'));
+    return;
   }
   next();
 });

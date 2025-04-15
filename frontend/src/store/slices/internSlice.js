@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from '../../api/axios';
 
 // Async thunks
-export const fetchInterns = createAsyncThunk(
+  export const fetchInterns = createAsyncThunk(
   'interns/fetchInterns',
   async (_, { rejectWithValue }) => {
     try {

@@ -1,56 +1,70 @@
 import Config from '../models/config.model.js';
 
-// Get configuration
+// Get configuration (public)
 export const getConfig = async (req, res) => {
   try {
     let config = await Config.findOne();
-    
-    // If no config exists, create default config
     if (!config) {
-      config = await Config.create({
-        companyName: 'Default Company',
+      // Create default config if none exists
+      config = new Config({
+        companyName: 'Company Name',
         workingHours: {
           start: '09:00',
           end: '17:00'
         },
-        departments: [
-          'IT',
-          'Software Development',
-          'Data Science',
-          'UI/UX',
-          'Marketing',
-          'HR',
-          'Finance',
-          'Operations',
-          'Networking'
-        ],
-        positions: [
-          'Intern',
-          'Junior Developer',
-          'Senior Developer',
-          'Team Lead',
-          'Project Manager'
-        ]
+        departments: [],
+        positions: []
       });
+      await config.save();
     }
-    
     res.json(config);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching config:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Update configuration
+// Create configuration (admin only)
+export const createConfig = async (req, res) => {
+  try {
+    const config = new Config(req.body);
+    await config.save();
+    res.status(201).json(config);
+  } catch (error) {
+    console.error('Error creating config:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Update configuration (admin only)
 export const updateConfig = async (req, res) => {
   try {
-    const config = await Config.findOneAndUpdate(
-      {},
+    const config = await Config.findByIdAndUpdate(
+      req.params.id,
       req.body,
-      { new: true, upsert: true, runValidators: true }
+      { new: true }
     );
+    if (!config) {
+      return res.status(404).json({ message: 'Config not found' });
+    }
     res.json(config);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error updating config:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Delete configuration (admin only)
+export const deleteConfig = async (req, res) => {
+  try {
+    const config = await Config.findByIdAndDelete(req.params.id);
+    if (!config) {
+      return res.status(404).json({ message: 'Config not found' });
+    }
+    res.json({ message: 'Config deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting config:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 

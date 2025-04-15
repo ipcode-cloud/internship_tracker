@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import {
   fetchAttendance,
   createAttendance,
   deleteAttendance,
+  updateAttendance,
 } from '../store/slices/attendanceSlice';
 import { fetchInterns } from '../store/slices/internSlice';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import AttendanceList from '../components/attendance/AttendanceList';
+import AttendanceFilter from '../components/attendance/AttendanceFilter';
+import AttendanceForm from '../components/attendance/AttendanceForm';
+import AttendanceStats from '../components/attendance/AttendanceStats';
+import Modal from '../components/common/Modal';
 
 const WeeklyOverview = ({ attendance, accessibleInterns }) => {
   // Get the date range for the current week (Monday to Sunday)
@@ -50,51 +58,54 @@ const WeeklyOverview = ({ attendance, accessibleInterns }) => {
   // Get daily breakdown
   const getDailyBreakdown = () => {
     const { monday } = getWeekRange();
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    
-    return days.map((day, index) => {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + index);
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const breakdown = [];
+
+    for (let i = 0; i < 7; i++) {
+      const currentDate = new Date(monday);
+      currentDate.setDate(monday.getDate() + i);
       
       const dayRecords = attendance.filter(record => {
         const recordDate = new Date(record.date);
-        return recordDate.toDateString() === date.toDateString();
+        return recordDate.toDateString() === currentDate.toDateString();
       });
 
-      return {
-        day,
-        date: date.toLocaleDateString(),
+      breakdown.push({
+        day: days[i],
+        date: currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         present: dayRecords.filter(r => r.status === 'present').length,
         absent: dayRecords.filter(r => r.status === 'absent').length,
         late: dayRecords.filter(r => r.status === 'late').length
-      };
-    });
+      });
+    }
+
+    return breakdown;
   };
 
-  const weeklyStats = getWeeklyStats();
+  const stats = getWeeklyStats();
   const dailyBreakdown = getDailyBreakdown();
 
   return (
-    <div className="mb-6 bg-white p-4 rounded-lg shadow">
-      <h3 className="text-lg font-medium mb-4">Weekly Attendance Overview</h3>
+    <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+      <h2 className="text-xl font-semibold mb-4">Weekly Attendance Overview</h2>
       
-      {/* Weekly Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-indigo-50 p-4 rounded-lg">
-          <p className="text-sm text-indigo-600 mb-1">Total Records</p>
-          <p className="text-2xl font-semibold text-indigo-900">{weeklyStats.total}</p>
+      {/* Weekly Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-blue-50 rounded-lg p-4">
+          <h3 className="text-sm font-medium text-blue-600">Total Records</h3>
+          <p className="text-2xl font-semibold text-blue-700 mt-1">{stats.total}</p>
         </div>
-        <div className="bg-green-50 p-4 rounded-lg">
-          <p className="text-sm text-green-600 mb-1">Present</p>
-          <p className="text-2xl font-semibold text-green-900">{weeklyStats.present}</p>
+        <div className="bg-green-50 rounded-lg p-4">
+          <h3 className="text-sm font-medium text-green-600">Present</h3>
+          <p className="text-2xl font-semibold text-green-700 mt-1">{stats.present}</p>
         </div>
-        <div className="bg-red-50 p-4 rounded-lg">
-          <p className="text-sm text-red-600 mb-1">Absent</p>
-          <p className="text-2xl font-semibold text-red-900">{weeklyStats.absent}</p>
+        <div className="bg-yellow-50 rounded-lg p-4">
+          <h3 className="text-sm font-medium text-yellow-600">Late</h3>
+          <p className="text-2xl font-semibold text-yellow-700 mt-1">{stats.late}</p>
         </div>
-        <div className="bg-yellow-50 p-4 rounded-lg">
-          <p className="text-sm text-yellow-600 mb-1">Late</p>
-          <p className="text-2xl font-semibold text-yellow-900">{weeklyStats.late}</p>
+        <div className="bg-red-50 rounded-lg p-4">
+          <h3 className="text-sm font-medium text-red-600">Absent</h3>
+          <p className="text-2xl font-semibold text-red-700 mt-1">{stats.absent}</p>
         </div>
       </div>
 
@@ -139,189 +150,28 @@ const WeeklyOverview = ({ attendance, accessibleInterns }) => {
   );
 };
 
-const AttendanceForm = ({ onSubmit, onCancel }) => {
-  const { interns } = useSelector((state) => state.interns);
-  
-  // Format today's date in local timezone to YYYY-MM-DD for the date input
-  const formatLocalDate = () => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  };
-  
-  const [formData, setFormData] = useState({
-    internId: '',
-    date: formatLocalDate(),
-    status: 'present',
-    checkIn: '',
-    checkOut: '',
-    notes: '',
-  });
-
-  // Filter active interns and sort them by name
-  const activeInterns = interns
-    .filter((intern) => intern.status === 'active')
-    .sort((a, b) => {
-      const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
-      const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
-      return nameA.localeCompare(nameB);
-    });
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ 
-      ...prev, 
-      [name]: value,
-      // Clear checkIn/checkOut when status is changed to absent
-      ...(name === 'status' && value === 'absent' && {
-        checkIn: '',
-        checkOut: ''
-      })
-    }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(formData);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Intern</label>
-        <select
-          name="internId"
-          value={formData.internId}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-          required
-        >
-          <option value="">Select Intern</option>
-          {activeInterns.map((intern) => (
-            <option key={intern._id} value={intern._id}>
-              {`${intern.firstName} ${intern.lastName}`}
-            </option>
-          ))}
-        </select>
-        {activeInterns.length === 0 && (
-          <p className="mt-2 text-sm text-red-600">
-            No active interns found. Please add interns first.
-          </p>
-        )}
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Date</label>
-        <input
-          type="date"
-          name="date"
-          value={formData.date}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-          required
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Status</label>
-        <select
-          name="status"
-          value={formData.status}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-          required
-        >
-          <option value="present">Present</option>
-          <option value="absent">Absent</option>
-          <option value="late">Late</option>
-        </select>
-      </div>
-
-      {formData.status !== 'absent' && (
-        <>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Check In</label>
-            <input
-              type="time"
-              name="checkIn"
-              value={formData.checkIn}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              required={formData.status !== 'absent'}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Check Out</label>
-            <input
-              type="time"
-              name="checkOut"
-              value={formData.checkOut}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              required={formData.status !== 'absent'}
-            />
-          </div>
-        </>
-      )}
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Notes</label>
-        <textarea
-          name="notes"
-          value={formData.notes}
-          onChange={handleChange}
-          rows={3}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-          placeholder={formData.status === 'absent' ? "Please provide reason for absence (optional)" : "Add any notes (optional)"}
-        />
-      </div>
-
-      <div className="flex justify-end space-x-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700"
-        >
-          Mark Attendance
-        </button>
-      </div>
-    </form>
-  );
-};
-
 const Attendance = () => {
   const dispatch = useDispatch();
-  const { attendance, loading } = useSelector((state) => state.attendance);
-  const { interns } = useSelector((state) => state.interns);
+  const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
+  const { interns, loading: internsLoading } = useSelector((state) => state.interns);
+  const { attendance, loading: attendanceLoading } = useSelector((state) => state.attendance);
+  
   const [showForm, setShowForm] = useState(false);
+  const [showLoading, setShowLoading] = useState(true);
+  const [loadingStartTime, setLoadingStartTime] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterDate, setFilterDate] = useState('');
   const [filterIntern, setFilterIntern] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [searchName, setSearchName] = useState('');
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showLoading, setShowLoading] = useState(false);
+  const [editingAttendance, setEditingAttendance] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [attendanceToDelete, setAttendanceToDelete] = useState(null);
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await Promise.all([
-        dispatch(fetchAttendance()),
-        dispatch(fetchInterns())
-      ]);
-    } finally {
-      // Add a minimum delay of 1 second before hiding the loading state
-      setTimeout(() => {
-        setIsRefreshing(false);
-      }, 1000);
-    }
-  };
+  useEffect(() => {
+    setLoadingStartTime(Date.now());
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -331,6 +181,8 @@ const Attendance = () => {
           dispatch(fetchAttendance()),
           dispatch(fetchInterns())
         ]);
+      } catch (error) {
+        console.error('Error loading attendance data:', error);
       } finally {
         // Add a minimum delay of 1 second before hiding the loading state
         setTimeout(() => {
@@ -343,99 +195,112 @@ const Attendance = () => {
   }, [dispatch]);
 
   // Filter interns based on user role
-  const accessibleInterns = interns.filter(intern => {
-    if (user.role === 'admin') return true;
-    if (user.role === 'mentor') {
-      const mentorId = intern.mentor?._id || intern.mentor;
-      return mentorId === user._id;
-    }
-    if (user.role === 'intern') return intern._id === user._id;
-    return false;
-  });
+  const accessibleInterns = user?.role === 'admin' 
+    ? interns 
+    : interns.filter(intern => intern.supervisor === user?._id);
 
-  const handleSubmit = async (formData) => {
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
     try {
-      // Helper function to create a date in the local timezone
-      const createLocalDate = (dateString, timeString = null) => {
-        // Parse the date components
-        const [year, month, day] = dateString.split('-').map(num => parseInt(num, 10));
-        
-        if (timeString) {
-          // If time is provided, include it
-          const [hours, minutes] = timeString.split(':').map(num => parseInt(num, 10));
-          // Create date with local components (months are 0-indexed in JS Date)
-          return new Date(year, month - 1, day, hours, minutes, 0);
-        } else {
-          // Date only (months are 0-indexed in JS Date)
-          return new Date(year, month - 1, day);
-        }
-      };
+      await Promise.all([
+        dispatch(fetchAttendance()),
+        dispatch(fetchInterns())
+      ]);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
-      // Create the date object in local timezone
-      const attendanceDate = createLocalDate(formData.date);
-      
-      // Transform the form data to match backend expectations
-      const transformedData = {
-        intern: formData.internId,
-        date: attendanceDate.toISOString(),
+  const handleAddAttendance = () => {
+    setEditingAttendance(null);
+    setShowForm(true);
+  };
+
+  const handleEditAttendance = (attendance) => {
+    // Format the attendance data for editing
+    const formattedAttendance = {
+      ...attendance,
+      intern: typeof attendance.intern === 'object' ? attendance.intern._id : attendance.intern,
+      date: new Date(attendance.date).toISOString().split('T')[0],
+      status: attendance.status || 'present',
+      checkIn: attendance.checkIn ? new Date(attendance.checkIn).toLocaleTimeString('en-US', { hour12: false }).slice(0, 5) : '',
+      checkOut: attendance.checkOut ? new Date(attendance.checkOut).toLocaleTimeString('en-US', { hour12: false }).slice(0, 5) : '',
+      notes: attendance.notes || ''
+    };
+    setEditingAttendance(formattedAttendance);
+    setShowForm(true);
+  };
+
+  const handleDeleteClick = (attendance) => {
+    setAttendanceToDelete(attendance);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      await dispatch(deleteAttendance(attendanceToDelete._id)).unwrap();
+      toast.success('Attendance record deleted successfully');
+      setShowDeleteConfirm(false);
+      setAttendanceToDelete(null);
+    } catch (error) {
+      toast.error(error.message || 'Failed to delete attendance record');
+    }
+  };
+
+  const handleFormSubmit = async (formData) => {
+    try {
+      // Format the data for submission
+      const formattedData = {
+        ...formData,
+        date: new Date(formData.date),
         status: formData.status,
+        intern: formData.intern,
         notes: formData.notes || ''
       };
 
-      // Only include checkIn/checkOut if status is not 'absent'
-      if (formData.status !== 'absent') {
-        transformedData.checkIn = formData.checkIn ? 
-          createLocalDate(formData.date, formData.checkIn).toISOString() : null;
-        transformedData.checkOut = formData.checkOut ? 
-          createLocalDate(formData.date, formData.checkOut).toISOString() : null;
+      // Handle check-in and check-out times based on status
+      if (formData.status === 'absent') {
+        delete formattedData.checkIn;
+        delete formattedData.checkOut;
+      } else {
+        if (formData.checkIn && formData.checkOut) {
+          formattedData.checkIn = new Date(`${formData.date}T${formData.checkIn}`);
+          formattedData.checkOut = new Date(`${formData.date}T${formData.checkOut}`);
+        }
       }
 
-      // Log the data being sent to the backend
-      console.log('Submitting attendance data:', transformedData);
-
-      await dispatch(createAttendance(transformedData));
+      if (editingAttendance) {
+        // Handle update
+        await dispatch(updateAttendance({ 
+          id: editingAttendance._id, 
+          data: formattedData 
+        })).unwrap();
+        toast.success('Attendance record updated successfully');
+      } else {
+        // Handle create
+        await dispatch(createAttendance(formattedData)).unwrap();
+        toast.success('Attendance marked successfully');
+      }
       setShowForm(false);
-      dispatch(fetchAttendance()); // Refresh the attendance list
+      setEditingAttendance(null);
     } catch (error) {
-      console.error('Error marking attendance:', error);
-      // Show error message to user
-      alert('Failed to mark attendance. Please try again.');
+      toast.error(error.message || 'Failed to save attendance record');
     }
   };
 
-  const handleDelete = async (id) => {
-    const record = attendance.find(a => a._id === id);
-    const internId = typeof record.intern === 'object' ? record.intern._id : record.intern;
-    const canDelete = user.role === 'admin' || 
-      (user.role === 'mentor' && accessibleInterns.some(i => i._id === internId));
-
-    if (!canDelete) {
-      alert('You do not have permission to delete this record.');
-      return;
+  const getInternName = (intern) => {
+    if (typeof intern === 'object') {
+      return `${intern.firstName} ${intern.lastName}`;
     }
-
-    if (window.confirm('Are you sure you want to delete this attendance record?')) {
-      await dispatch(deleteAttendance(id));
-    }
+    const foundIntern = interns.find(i => i._id === intern);
+    return foundIntern ? `${foundIntern.firstName} ${foundIntern.lastName}` : 'Unknown Intern';
   };
 
-  const getInternName = (internId) => {
-    // If intern is already populated in the attendance record
-    if (typeof internId === 'object' && internId.firstName && internId.lastName) {
-      return `${internId.firstName} ${internId.lastName}`;
-    }
-    // Fallback to finding in interns array
-    const intern = interns.find((i) => i._id === (internId?._id || internId));
-    return intern ? `${intern.firstName} ${intern.lastName}` : 'Unknown';
-  };
-
-  // Helper function to format date to YYYY-MM-DD for consistent comparison
-  const formatDateToYYYYMMDD = (date) => {
-    const d = new Date(date);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+  const formatTime = (timeString) => {
+    if (!timeString) return '-';
+    return new Date(timeString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   const filteredAttendance = attendance.filter((record) => {
@@ -448,7 +313,7 @@ const Attendance = () => {
     if (!hasAccess) return false;
 
     // Then apply other filters
-    const recordDateFormatted = formatDateToYYYYMMDD(record.date);
+    const recordDateFormatted = new Date(record.date).toISOString().split('T')[0];
     const matchesDate = !filterDate || recordDateFormatted === filterDate;
     
     const internName = getInternName(record.intern).toLowerCase();
@@ -462,7 +327,6 @@ const Attendance = () => {
     return matchesDate && matchesIntern && matchesStatus && matchesSearch;
   });
 
-  // Reset all filters
   const clearFilters = () => {
     setFilterDate('');
     setFilterIntern('');
@@ -470,13 +334,7 @@ const Attendance = () => {
     setSearchName('');
   };
 
-  // Format time for display
-  const formatTime = (timeString) => {
-    if (!timeString) return '-';
-    return new Date(timeString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  if (showLoading || loading) {
+  if (showLoading || attendanceLoading || internsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <LoadingSpinner size="lg" text="Loading attendance records..." />
@@ -509,7 +367,7 @@ const Attendance = () => {
           </button>
           {(user.role === 'admin' || user.role === 'mentor') && (
         <button
-          onClick={() => setShowForm(true)}
+          onClick={handleAddAttendance}
           className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
         >
           Mark Attendance
@@ -522,136 +380,74 @@ const Attendance = () => {
         <div className="mb-8 bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Mark Attendance</h2>
           <AttendanceForm
-            onSubmit={handleSubmit}
-            onCancel={() => setShowForm(false)}
+            onSubmit={handleFormSubmit}
+            onCancel={() => {
+              setShowForm(false);
+              setEditingAttendance(null);
+            }}
+            accessibleInterns={accessibleInterns}
+            initialData={editingAttendance}
           />
         </div>
       )}
 
-      <WeeklyOverview attendance={filteredAttendance} accessibleInterns={accessibleInterns} />
+      <AttendanceStats attendance={filteredAttendance} accessibleInterns={accessibleInterns} />
 
-      <div className="mb-6 bg-white p-4 rounded-lg shadow">
-        <h3 className="text-lg font-medium mb-3">Filter Attendance</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-        <input
-          type="date"
-          value={filterDate}
-          onChange={(e) => setFilterDate(e.target.value)}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            />
-          </div>
-          
-          {(user.role === 'admin' || user.role === 'mentor') && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search by Name</label>
-              <input
-                type="text"
-                value={searchName}
-                onChange={(e) => setSearchName(e.target.value)}
-                placeholder="Enter intern name"
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              />
-            </div>
-          )}
+      <AttendanceFilter
+        filterDate={filterDate}
+        setFilterDate={setFilterDate}
+        filterIntern={filterIntern}
+        setFilterIntern={setFilterIntern}
+        filterStatus={filterStatus}
+        setFilterStatus={setFilterStatus}
+        searchName={searchName}
+        setSearchName={setSearchName}
+        accessibleInterns={accessibleInterns}
+        user={user}
+        clearFilters={clearFilters}
+      />
 
-          {(user.role === 'admin' || user.role === 'mentor') && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Intern</label>
-        <select
-          value={filterIntern}
-          onChange={(e) => setFilterIntern(e.target.value)}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-        >
-          <option value="">All Interns</option>
-                {accessibleInterns.map((intern) => (
-            <option key={intern._id} value={intern._id}>
-              {`${intern.firstName} ${intern.lastName}`}
-            </option>
-          ))}
-        </select>
-            </div>
-          )}
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-        >
-          <option value="">All Status</option>
-          <option value="present">Present</option>
-          <option value="absent">Absent</option>
-          <option value="late">Late</option>
-              <option value="half-day">Half Day</option>
-        </select>
-          </div>
-        </div>
-        
-        <div className="flex justify-end mt-4">
-          <button
-            onClick={clearFilters}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-          >
-            Clear Filters
-          </button>
-        </div>
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-semibold mb-4">Attendance Records</h2>
+        <AttendanceList
+          attendance={filteredAttendance}
+          accessibleInterns={accessibleInterns}
+          getInternName={getInternName}
+          formatTime={formatTime}
+          onEdit={handleEditAttendance}
+          onDelete={handleDeleteClick}
+        />
       </div>
 
-      <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Intern</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check In</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check Out</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredAttendance.length > 0 ? (
-              filteredAttendance.map((record) => (
-              <tr key={record._id}>
-                <td className="px-6 py-4 whitespace-nowrap">{new Date(record.date).toLocaleDateString()}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{getInternName(record.intern)}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    record.status === 'present' ? 'bg-green-100 text-green-800' :
-                    record.status === 'absent' ? 'bg-red-100 text-red-800' :
-                      record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-blue-100 text-blue-800'
-                  }`}>
-                    {record.status}
-                  </span>
-                </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{formatTime(record.checkIn)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{formatTime(record.checkOut)}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{record.notes || '-'}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button
-                    onClick={() => handleDelete(record._id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
-                  No attendance records found matching your filters
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setAttendanceToDelete(null);
+        }}
+        title="Confirm Delete"
+      >
+        <div className="p-4">
+          <p>Are you sure you want to delete this attendance record?</p>
+          <div className="mt-4 flex justify-end space-x-3">
+            <button
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                setAttendanceToDelete(null);
+              }}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteConfirm}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

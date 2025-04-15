@@ -1,10 +1,12 @@
 import User from '../models/user.model.js';
+import Intern from '../models/intern.model.js';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
 // Register new user
 export const register = async (req, res) => {
   try {
-    const { email, password, firstName, lastName, role, department, phone } = req.body;
+    const { email, password, firstName, lastName, phone, department, role = 'intern' } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -12,23 +14,43 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
 
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
     // Create new user
     const user = new User({
       email,
-      password,
+      password: hashedPassword,
       firstName,
       lastName,
-      role,
+      phone,
       department,
-      phone
+      role
     });
 
     await user.save();
 
+    // If user is an intern, create intern record
+    // if (role === 'intern') {
+    //   const intern = new Intern({
+    //     userId: user._id,
+    //     firstName,
+    //     lastName,
+    //     email,
+    //     phone,
+    //     department,
+    //     position,
+    //     startDate: new Date()
+    //   });
+
+    //   await intern.save();
+    // }
+
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, role: user.role },
-      process.env.JWT_SECRET,
+      { userId: user._id },
+      process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '24h' }
     );
 
@@ -41,54 +63,56 @@ export const register = async (req, res) => {
         lastName: user.lastName,
         role: user.role,
         department: user.department,
-        phone: user.phone
+        position: user.position
       }
     });
   } catch (error) {
+    console.error('Registration error:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
 // Login user
-export const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+export const login =
+  async (req, res) => {
+    try {
+      const { email, password } = req.body;
 
-    // Find user
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    // Check password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        department: user.department,
-        phone: user.phone
+      // Find user
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.status(400).json({ message: 'Invalid credentials' });
       }
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+
+      // Check password
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Invalid credentials' });
+      }
+
+      // Generate token with consistent payload
+      const token = jwt.sign(
+        { userId: user._id, role: user.role },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '24h' }
+      );
+
+      res.json({
+        token,
+        user: {
+          _id: user._id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          department: user.department
+        }
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
   }
-};
 
 // Get current user
 export const getCurrentUser = async (req, res) => {
@@ -106,12 +130,14 @@ export const getCurrentUser = async (req, res) => {
 // Get all users
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select('-password');
+    const users = await User.find()
+      .select('firstName lastName email role department isActive phone')
+      .sort({ firstName: 1 });
     res.json(users);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
-};
+}
 
 // Get single user
 export const getUser = async (req, res) => {
@@ -129,27 +155,37 @@ export const getUser = async (req, res) => {
 // Update user
 export const updateUser = async (req, res) => {
   try {
-    const { password, ...updateData } = req.body;
-    
-    // If password is being updated, it will be hashed by the pre-save middleware
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { ...updateData, ...(password && { password }) },
-      { new: true, runValidators: true }
-    ).select('-password');
+    const { userId } = req.params;
+    const updates = req.body;
 
+    // Check if user exists
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.json(user);
-  } catch (error) {
-    if (error.code === 11000) {
-      res.status(400).json({ message: 'Email already exists' });
-    } else {
-      res.status(500).json({ message: error.message });
+
+    // Check if the user is updating their own profile or is an admin
+    if (req.user._id.toString() !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized to update this profile' });
     }
+
+    // Update user fields
+    Object.keys(updates).forEach(key => {
+      if (key !== 'password' && key !== 'role') { // Prevent updating password and role through this route
+        user[key] = updates[key];
+      }
+    });
+
+    await user.save();
+
+    // Return updated user without password
+    const updatedUser = await User.findById(userId).select('-password');
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
-};
+}
 
 // Delete user
 export const deleteUser = async (req, res) => {
@@ -167,14 +203,14 @@ export const deleteUser = async (req, res) => {
 // Get all mentors
 export const getAllMentors = async (req, res) => {
   try {
-    const mentors = await User.find({ role: 'mentor' })
+    const mentors = await User.find({ role: 'mentor', isActive: true })
       .select('firstName lastName email department')
       .sort({ firstName: 1 });
     res.json(mentors);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
-};
+}
 
 // Change password
 export const changePassword = async (req, res) => {

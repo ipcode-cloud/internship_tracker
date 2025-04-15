@@ -23,7 +23,7 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const intern = await Intern.findById(req.params.id)
       .populate('mentor', 'firstName lastName email');
-    
+
     if (!intern) {
       return res.status(404).json({ message: 'Intern not found' });
     }
@@ -33,14 +33,15 @@ router.get('/:id', auth, async (req, res) => {
       // Admin can access any intern's profile
       return res.json(intern);
     }
-    
+
     if (req.user.role === 'mentor') {
       // Mentor can access their mentees' profiles
-      if (intern.mentor._id.toString() === req.user._id.toString()) {
+      const mentorId = intern.mentor?._id?.toString() || intern.mentor?.toString();
+      if (mentorId === req.user._id.toString()) {
         return res.json(intern);
       }
     }
-    
+
     if (req.user.role === 'intern') {
       // Intern can only access their own profile
       if (intern._id.toString() === req.user._id.toString()) {
@@ -59,13 +60,13 @@ router.get('/:id', auth, async (req, res) => {
 // Create new intern (admin only)
 router.post('/',
   auth,
-  checkRole(['admin']),
+  checkRole(['admin', 'mentor']),
   [
     body('firstName').trim().notEmpty(),
     body('lastName').trim().notEmpty(),
     body('email').isEmail().normalizeEmail(),
-    body('phone').trim().notEmpty(),
-    body('department').trim().notEmpty(),
+    body('phone').optional().trim().notEmpty(),
+    body('department').optional().trim().notEmpty(),
     body('position').trim().notEmpty(),
     body('startDate').isISO8601(),
     body('endDate').isISO8601(),
@@ -103,7 +104,7 @@ router.put('/:id',
     body('endDate').optional().isISO8601(),
     body('mentor').optional().isMongoId(),
     body('status').optional().isIn(['active', 'inactive', 'completed', 'terminated', 'extended', 'on_leave']),
-    body('performanceRating').optional().isIn(['excellent', 'good', 'average', 'needs_improvement', 'unsatisfactory']),
+    body('performanceRating').optional().isIn(['excellent', 'good', 'average', 'needs_improvement']),
     body('projectStatus').optional().isIn(['not_started', 'in_progress', 'completed', 'delayed', 'on_hold']),
     body('comments').optional().trim()
   ],
@@ -120,8 +121,11 @@ router.put('/:id',
       }
 
       // Check if user has permission to update this intern
-      if (req.user.role === 'mentor' && intern.mentor.toString() !== req.user._id.toString()) {
-        return res.status(403).json({ message: 'You do not have permission to update this intern' });
+      if (req.user.role === 'mentor') {
+        const mentorId = intern.mentor?._id?.toString() || intern.mentor?.toString();
+        if (mentorId !== req.user._id.toString()) {
+          return res.status(403).json({ message: 'You do not have permission to update this intern' });
+        }
       }
 
       // Update intern fields
@@ -130,7 +134,7 @@ router.put('/:id',
       });
 
       await intern.save();
-      
+
       // Populate mentor details before sending response
       await intern.populate('mentor', 'firstName lastName email');
       res.json(intern);
@@ -170,7 +174,7 @@ router.put('/batch/complete-expired',
           status: 'active'
         },
         {
-          $set: { 
+          $set: {
             status: 'completed',
             updatedAt: new Date()
           }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 const MentorDashboard = ({ 
@@ -10,6 +10,25 @@ const MentorDashboard = ({
   getMentorMentees,
   getMentorId 
 }) => {
+  const [mentees, setMentees] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user && interns && attendance) {
+      const filteredMentees = getMentorMentees();
+      setMentees(filteredMentees);
+      setLoading(false);
+    }
+  }, [user, interns, attendance, getMentorMentees]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
@@ -21,19 +40,19 @@ const MentorDashboard = ({
           <div className="bg-white bg-opacity-20 rounded-lg p-4">
             <h3 className="text-sm text-slate-900 font-medium opacity-80">Active Mentees</h3>
             <p className="text-lg text-lime-500 font-bold mt-1">
-              {interns.filter(intern => getMentorId(intern.mentor) === user.id && intern.status === 'active').length}
+              {mentees.filter(intern => intern.status === 'active').length}
             </p>
           </div>
           <div className="bg-white bg-opacity-20 rounded-lg p-4">
             <h3 className="text-sm text-slate-900 font-medium opacity-80">Completed Mentees</h3>
             <p className="text-lg text-blue-600 font-bold mt-1">
-              {interns.filter(intern => getMentorId(intern.mentor) === user.id && intern.status === 'completed').length}
+              {mentees.filter(intern => intern.status === 'completed').length}
             </p>
           </div>
           <div className="bg-white bg-opacity-20 rounded-lg p-4">
             <h3 className="text-sm text-slate-900 font-medium opacity-80">On Leave</h3>
             <p className="text-lg text-orange-600 font-bold mt-1">
-              {interns.filter(intern => getMentorId(intern.mentor) === user.id && intern.status === 'on_leave').length}
+              {mentees.filter(intern => intern.status === 'on_leave').length}
             </p>
           </div>
         </div>
@@ -42,7 +61,7 @@ const MentorDashboard = ({
       {/* Mentees List */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Your Mentees ({getMentorMentees().length})</h2>
+          <h2 className="text-xl font-semibold">Your Mentees ({mentees.length})</h2>
           <div className="flex gap-2">
             <select 
               className="form-select rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -69,11 +88,11 @@ const MentorDashboard = ({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {getMentorMentees()
+              {mentees
                 .filter(intern => statusFilter === 'all' ? true : intern.status === statusFilter)
                 .map((intern) => {
                   const internAttendance = attendance.find(record => 
-                    record.internId === intern._id && 
+                    (record.intern._id || record.intern) === intern._id && 
                     new Date(record.date).toDateString() === new Date().toDateString()
                   );
 
@@ -126,19 +145,19 @@ const MentorDashboard = ({
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-3">
                           <Link
-                            to={`/intern/${intern._id}/profile`}
+                            to={`/interns/${intern._id}`}
                             className="text-indigo-600 hover:text-indigo-900 whitespace-nowrap"
                           >
                             View Profile
                           </Link>
                           <Link
-                            to={`/intern/${intern._id}/edit`}
+                            to={`/interns/${intern._id}/progress`}
                             className="text-green-600 hover:text-green-900 whitespace-nowrap"
                           >
                             Update Progress
                           </Link>
                           <Link
-                            to={`/intern/${intern._id}/attendance`}
+                            to={`/interns/${intern._id}/attendance`}
                             className="text-blue-600 hover:text-blue-900 whitespace-nowrap"
                           >
                             Manage Attendance

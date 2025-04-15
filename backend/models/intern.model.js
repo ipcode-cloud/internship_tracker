@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const internSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
   firstName: {
     type: String,
     required: true,
@@ -40,7 +45,7 @@ const internSchema = new mongoose.Schema({
   position: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
   },
   startDate: {
     type: Date,
@@ -54,22 +59,19 @@ const internSchema = new mongoose.Schema({
     type: String,
     enum: [
       'active',
-      'inactive',
       'completed',
-      'terminated',
-      'extended',
       'on_leave'
     ],
     default: 'active'
   },
   performanceRating: {
     type: String,
-    enum: ['excellent', 'good', 'average', 'needs_improvement', 'unsatisfactory'],
+    enum: ['excellent', 'good', 'average', 'needs_improvement'],
     default: 'average'
   },
   projectStatus: {
     type: String,
-    enum: ['not_started', 'in_progress', 'completed', 'delayed', 'on_hold'],
+    enum: ['not_started', 'in_progress', 'completed'],
     default: 'not_started'
   },
   mentor: {
