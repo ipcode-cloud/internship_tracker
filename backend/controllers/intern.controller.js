@@ -1,3 +1,4 @@
+import { validationResult } from 'express-validator';
 import Intern from '../models/intern.model.js';
 import User from '../models/user.model.js';
 
@@ -5,11 +6,12 @@ import User from '../models/user.model.js';
 export const getAllInterns = async (req, res) => {
   try {
     const interns = await Intern.find()
-      .populate('mentor', 'firstName lastName email department')
+      .populate('mentor', 'firstName lastName email')
       .sort({ createdAt: -1 });
     res.json(interns);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching interns:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -29,31 +31,20 @@ export const getIntern = async (req, res) => {
 
 // Create new intern
 export const createIntern = async (req, res) => {
-  try {
-    // Check if mentor exists and is actually a mentor
-    const mentor = await User.findOne({ 
-      _id: req.body.mentor,
-      role: 'mentor'
-    });
-    
-    if (!mentor) {
-      return res.status(400).json({ message: 'Invalid mentor selected' });
-    }
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
 
-    const intern = new Intern(req.body);
-    const savedIntern = await intern.save();
-    const populatedIntern = await Intern.findById(savedIntern._id)
-      .populate('mentor', 'firstName lastName email department');
-    
-    res.status(201).json(populatedIntern);
-  } catch (error) {
-    if (error.code === 11000) {
-      res.status(400).json({ message: 'Email already exists' });
-    } else {
-      res.status(500).json({ message: error.message });
+      const intern = new Intern(req.body);
+      await intern.save();
+      res.status(201).json(intern);
+    } catch (error) {
+      console.error("Error creating intern:", error);
+      res.status(500).json({ message: "Server error" });
     }
   }
-};
 
 // Update intern
 export const updateIntern = async (req, res) => {

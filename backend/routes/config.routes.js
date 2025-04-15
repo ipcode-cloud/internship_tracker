@@ -1,8 +1,13 @@
-import express from 'express';
-import { body, validationResult } from 'express-validator';
-import Config from '../models/config.model.js';
-import { auth, checkRole } from '../middleware/auth.middleware.js';
-import { getConfig, createConfig, updateConfig, deleteConfig } from '../controllers/config.controller.js';
+import express from "express";
+import { body, validationResult } from "express-validator";
+import Config from "../models/config.model.js";
+import { auth, checkRole } from "../middleware/auth.middleware.js";
+import {
+  getConfig,
+  createConfig,
+  updateConfig,
+  deleteConfig,
+} from "../controllers/config.controller.js";
 
 const router = express.Router();
 
@@ -35,11 +40,11 @@ const router = express.Router();
 // });
 
 // Public route to get config
-router.get('/', getConfig);
+router.get("/", getConfig);
 
 // Protected routes for admin
-router.post('/', auth, checkRole(['admin']), createConfig);
-router.put('/:id', auth, checkRole(['admin']), updateConfig);
-router.delete('/:id', auth, checkRole(['admin']), deleteConfig);
+router.post("/", auth, checkRole(["admin"]), createConfig);
+router.put("/:id", auth, checkRole(["admin"]), updateConfig);
+router.delete("/:id", auth, checkRole(["admin"]), deleteConfig);
 
-export default router; 
+export default router;
