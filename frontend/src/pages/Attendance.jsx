@@ -197,7 +197,7 @@ const Attendance = () => {
   // Filter interns based on user role
   const accessibleInterns = user?.role === 'admin' 
     ? interns 
-    : interns.filter(intern => intern.supervisor === user?._id);
+    : interns.filter(intern => intern.mentor === user?._id);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
