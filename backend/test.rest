@@ -1,12 +1,11 @@
 ### Variables
 @baseUrl = http://localhost:5000/api
-@token = abc
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2N2VmYmM4NGEwZGVmZmU1ZmViMjZhYTYiLCJyb2xlIjoiaW50ZXJuIiwiaWF0IjoxNzQ0NDU5NjY2LCJleHAiOjE3NDQ1NDYwNjZ9.Ht_D1IRflicL1Wz4GWlwWM_lrIQlaL7lbpXFSfEq6mg
 
 
 ### Authentication Tests
 
 ### Register Admin User
-## token:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3ZWU1YTM4N2UyOTQ0NWZiZWE5MDM2MCIsImlhdCI6MTc0MzY3MzkxMiwiZXhwIjoxNzQzNzYwMzEyfQ.HH-1yF7qWBmdeql2A1PNiYN2gY1ogfEbBFGJWOgmmBg
 
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
@@ -17,7 +16,8 @@ Content-Type: application/json
   "email": "admin2@example.com",
   "password": "admin123",
   "department": "IT",
-  "role": "admin"
+  "role": "admin",
+  "phone": "0781111111"
 }
 
 ### Register Mentor User
@@ -25,24 +25,25 @@ POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
 {
-  "firstName": "Mentor",
+  "firstName": "Intern",
   "lastName": "User",
-  "email": "mentor@example.com",
-  "password": "mentor123",
+  "email": "intern@example.com",
+  "password": "intern123",
   "department": "IT",
-  "role": "mentor"
+  "role": "intern",
+  "phone":"2311231223"
 }
 
 ### Login User
 
-# token:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3ZWNlYzlmZDdiOWE3NGZkYjBhNDU2YyIsImlhdCI6MTc0MzU4MDMxOSwiZXhwIjoxNzQzNjY2NzE5fQ.ZVTx1uU5u4gDi_LbvoGsuKNveBoQlwJj0SnWlxGueTk
-# id:67ecec9fd7b9a74fdb0a456c
+# token:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2N2VmYmM4NGEwZGVmZmU1ZmViMjZhYTYiLCJyb2xlIjoiaW50ZXJuIiwiaWF0IjoxNzQ0NDY0NDc3LCJleHAiOjE3NDQ1NTA4Nzd9.UBkqY8sgxNPPK-qlHoJ9lRVgIhwvSMSzAt8LDjN9lU4
+@internId = 67efbc84a0deffe5feb26aa6
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "mentor@example.com",
-  "password": "mentor123"
+  "email": "abc@doli.com",
+  "password": "123456"
 }
 
 ### Get Current User
@@ -72,7 +73,7 @@ GET {{baseUrl}}/interns
 Authorization: Bearer {{token}}
 
 ### Get Intern by ID
-GET {{baseUrl}}/interns/67ecf03b50c594ba18b8bc50
+GET {{baseUrl}}/interns/67edcb34e31295314aebb82f
 Authorization: Bearer {{token}}
 
 ### Update Intern
@@ -110,7 +111,11 @@ Content-Type: application/json
 }
 
 ### Get Attendance for Specific Intern
-GET {{baseUrl}}/attendance/intern/intern_id_here
+GET {{baseUrl}}/attendance/intern/{{internId}}
+Authorization: Bearer {{token}}
+
+### Get Attendance for Current User
+GET {{baseUrl}}/attendance/my-attendance
 Authorization: Bearer {{token}}
 
 ### Get Attendance by Date Range

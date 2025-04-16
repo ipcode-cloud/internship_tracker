@@ -7,7 +7,10 @@ export const login = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.post('/auth/login', credentials);
-      localStorage.setItem('token', response.data.token);
+      const token = response.data.token;
+      localStorage.setItem('token', token);
+      // Set the token in axios headers
+      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || { message: 'Login failed' });
@@ -47,10 +50,15 @@ export const getCurrentUser = createAsyncThunk(
   'auth/getCurrentUser',
   async (_, { rejectWithValue }) => {
     try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      }
       const response = await axiosInstance.get('/auth/me');
       return response.data;
     } catch (error) {
       localStorage.removeItem('token');
+      delete axiosInstance.defaults.headers.common['Authorization'];
       return rejectWithValue(error.response?.data || { message: 'Failed to get user data' });
     }
   }
@@ -76,6 +84,30 @@ export const fetchUsers = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || { message: 'Failed to fetch users' });
+    }
+  }
+);
+
+export const updateUser = createAsyncThunk(
+  'auth/updateUser',
+  async ({ userId, ...userData }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.put(`/auth/update/${userId}`, userData);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || { message: 'Failed to update user' });
+    }
+  }
+);
+
+export const deleteUser = createAsyncThunk(
+  'auth/deleteUser',
+  async (userId, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.delete(`/auth/users/${userId}`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || { message: 'Failed to delete user' });
     }
   }
 );
@@ -199,6 +231,45 @@ const authSlice = createSlice({
       .addCase(fetchUsers.rejected, (state, action) => {
         state.usersLoading = false;
         state.usersError = action.payload?.message || 'Failed to fetch users';
+      })
+      // Update User
+      .addCase(updateUser.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateUser.fulfilled, (state, action) => {
+        state.loading = false;
+        // Update the current user if it's their own profile
+        if (state.user?._id === action.payload._id) {
+          state.user = action.payload;
+        }
+        // Update the user in the users list
+        state.users = state.users.map(user => 
+          user._id === action.payload._id ? action.payload : user
+        );
+      })
+      .addCase(updateUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || 'Failed to update user';
+      })
+      // Delete User
+      .addCase(deleteUser.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteUser.fulfilled, (state, action) => {
+        state.loading = false;
+        // Remove the user from the users list
+        state.users = state.users.filter(user => user._id !== action.payload._id);
+        // If the deleted user is the current user, log them out
+        if (state.user?._id === action.payload._id) {
+          state.user = null;
+          state.isAuthenticated = false;
+        }
+      })
+      .addCase(deleteUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || 'Failed to delete user';
       });
   }
 });

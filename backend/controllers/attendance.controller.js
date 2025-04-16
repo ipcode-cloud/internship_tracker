@@ -5,7 +5,7 @@ import Intern from '../models/intern.model.js';
 export const getAllAttendance = async (req, res) => {
   try {
     const attendance = await Attendance.find()
-      .populate('intern', 'firstName lastName email department')
+      .populate('intern', 'firstName lastName email department phone')
       .populate('markedBy', 'firstName lastName')
       .sort({ date: -1 });
     res.json(attendance);
@@ -18,7 +18,7 @@ export const getAllAttendance = async (req, res) => {
 export const getAttendance = async (req, res) => {
   try {
     const attendance = await Attendance.findById(req.params.id)
-      .populate('intern', 'firstName lastName email department')
+      .populate('intern', 'firstName lastName email department phone')
       .populate('markedBy', 'firstName lastName');
     if (!attendance) {
       return res.status(404).json({ message: 'Attendance record not found' });
@@ -32,57 +32,56 @@ export const getAttendance = async (req, res) => {
 // Create new attendance record
 export const createAttendance = async (req, res) => {
   try {
-    // Check if intern exists
+    // Check if intern exists and is active
     const intern = await Intern.findById(req.body.intern);
     if (!intern) {
-      return res.status(400).json({ message: 'Invalid intern selected' });
+      return res.status(404).json({ message: 'Intern not found' });
+    }
+    if (intern.status !== 'active') {
+      return res.status(400).json({ message: 'Intern is not active' });
     }
 
-    // Check for existing attendance record for the same date
+    // Check if attendance already exists for this date
     const existingAttendance = await Attendance.findOne({
       intern: req.body.intern,
-      date: req.body.date
+      date: {
+        $gte: new Date(req.body.date).setHours(0, 0, 0, 0),
+        $lt: new Date(req.body.date).setHours(23, 59, 59, 999)
+      }
     });
 
     if (existingAttendance) {
-      return res.status(400).json({ message: 'Attendance record already exists for this date' });
+      return res.status(400).json({ message: 'Attendance already marked for this date' });
     }
 
     const attendance = new Attendance({
       ...req.body,
-      markedBy: req.user._id // Assuming user info is available in req.user
+      date: new Date(req.body.date),
+      markedBy: req.user._id
     });
-    
-    const savedAttendance = await attendance.save();
-    const populatedAttendance = await Attendance.findById(savedAttendance._id)
-      .populate('intern', 'firstName lastName email department')
-      .populate('markedBy', 'firstName lastName');
-    
-    res.status(201).json(populatedAttendance);
+
+    await attendance.save();
+    res.status(201).json(attendance);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
-};
+}
 
 // Update attendance record
 export const updateAttendance = async (req, res) => {
   try {
-    const attendance = await Attendance.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    )
-    .populate('intern', 'firstName lastName email department')
-    .populate('markedBy', 'firstName lastName');
-
+    const attendance = await Attendance.findById(req.params.id);
     if (!attendance) {
       return res.status(404).json({ message: 'Attendance record not found' });
     }
+
+    Object.assign(attendance, req.body);
+    await attendance.save();
     res.json(attendance);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
-};
+}
 
 // Delete attendance record
 export const deleteAttendance = async (req, res) => {
@@ -91,11 +90,11 @@ export const deleteAttendance = async (req, res) => {
     if (!attendance) {
       return res.status(404).json({ message: 'Attendance record not found' });
     }
-    res.json({ message: 'Attendance record deleted successfully' });
+    res.json({ message: 'Attendance record deleteds successully' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
-};
+}
 
 // Get attendance by intern
 export const getAttendanceByIntern = async (req, res) => {

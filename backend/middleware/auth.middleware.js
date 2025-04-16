@@ -6,28 +6,29 @@ const auth = async (req, res, next) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
     if (!token) {
-      throw new Error();
+      return res.status(401).json({ message: 'No token provided' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    const user = await User.findOne({ _id: decoded.id, isActive: true });
+    const user = await User.findById(decoded.userId || decoded.id).select('-password');
 
     if (!user) {
-      throw new Error();
+      return res.status(401).json({ message: 'User not found' });
     }
 
     req.user = user;
     req.token = token;
     next();
   } catch (error) {
-    res.status(401).json({ message: 'Please authenticate.' });
+    console.error('Auth middleware error:', error);
+    res.status(401).json({ message: 'Please authenticate' });
   }
 };
 
 const checkRole = (roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied.' });
+      return res.status(403).json({ message: 'Access denied' });
     }
     next();
   };

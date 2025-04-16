@@ -27,7 +27,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/interns', internRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/config', configRoutes);
-app.use('/api/admin', adminRoutes);
+// app.use('/api/admin', adminRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
