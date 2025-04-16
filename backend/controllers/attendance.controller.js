@@ -5,7 +5,7 @@ import Intern from '../models/intern.model.js';
 export const getAllAttendance = async (req, res) => {
   try {
     const attendance = await Attendance.find()
-      .populate('intern', 'firstName lastName email department')
+      .populate('intern', 'firstName lastName email department phone')
       .populate('markedBy', 'firstName lastName')
       .sort({ date: -1 });
     res.json(attendance);
@@ -18,7 +18,7 @@ export const getAllAttendance = async (req, res) => {
 export const getAttendance = async (req, res) => {
   try {
     const attendance = await Attendance.findById(req.params.id)
-      .populate('intern', 'firstName lastName email department')
+      .populate('intern', 'firstName lastName email department phone')
       .populate('markedBy', 'firstName lastName');
     if (!attendance) {
       return res.status(404).json({ message: 'Attendance record not found' });

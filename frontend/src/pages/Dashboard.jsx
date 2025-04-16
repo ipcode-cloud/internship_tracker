@@ -284,7 +284,7 @@ const Dashboard = () => {
   switch (user?.role) {
     case 'admin':
       return (
-        <div className="space-y-6">
+        <div className="overflow-auto pt-6 md:max-h-screen lg:max-h-screen scroll-smooth">
           <CompanyDetails />
           <AdminDashboard
             interns={interns}
@@ -300,7 +300,7 @@ const Dashboard = () => {
       );
     case 'mentor':
       return (
-        <div className="space-y-6">
+        <div className="overflow-auto pt-6  md:max-h-screen lg:max-h-screen scroll-smooth">
           <CompanyDetails />
           <MentorDashboard
             user={user}
@@ -315,7 +315,7 @@ const Dashboard = () => {
       );
       case 'intern':
         return (
-          <div className="space-y-6">
+          <div className="overflow-auto pt-6 md:max-h-screen lg:max-h-screen scroll-smooth">
           <CompanyDetails />
           <InternDashboard
             user={user}
