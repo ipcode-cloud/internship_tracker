@@ -343,7 +343,7 @@ const Attendance = () => {
   }
 
   return (
-    <div>
+    <div className="flex-1 p-6 overflow-y-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">
           {user.role === 'intern' ? 'My Attendance' : 'Attendance Management'}
